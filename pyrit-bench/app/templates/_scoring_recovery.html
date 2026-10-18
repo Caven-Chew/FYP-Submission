@@ -1,0 +1,20 @@
+{% if p.can_retry_scoring %}
+<form method="post" action="{{ url_for('main.benchmarks_retry_scoring', bid=b.id, pid=p.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn-link" type="submit" {% if b.status not in ('completed', 'failed', 'completed_with_target_errors', 'stopped', 'interrupted') %}disabled{% endif %}>Retry scoring</button>
+</form>
+{% elif p.counts_toward_stats and not p.has_valid_score and two_label.row_method(p) != 'two_label' %}
+{# Severity is not requested in a two-label run, so "unscored" would mislead. #}
+<span class="muted small">Unscored. {{ p.scoring_retry_blocker }}</span>
+{% endif %}
+{% if p.current_scoring_evaluations %}
+<details class="small" data-scoring-history="{{ p.id }}">
+    <summary>Scoring history ({{ p.current_scoring_evaluations|length }})</summary>
+    {% for evaluation in p.current_scoring_evaluations %}
+    <p>{{ evaluation.started_at }} UTC — {{ evaluation.status }}{% if evaluation.severity is not none %}, score {{ evaluation.severity }}{% endif %}{% if evaluation.elapsed_ms is not none %}, {{ evaluation.elapsed_ms }} ms{% endif %}</p>
+    {% set saved_judge = evaluation.context.get('judge') or {} %}
+    <p>Judge: {{ saved_judge.get('provider', 'unknown') }}/{{ saved_judge.get('model', 'unknown') }}<br>Recorded success threshold: {{ evaluation.context.get('success_threshold', 'unknown') }}<br>Response hash: <code>{{ evaluation.context.get('response_sha256', 'unknown') }}</code></p>
+    <pre class="cell">{{ evaluation.verdict or 'Awaiting judge result' }}</pre>
+    {% endfor %}
+</details>
+{% endif %}

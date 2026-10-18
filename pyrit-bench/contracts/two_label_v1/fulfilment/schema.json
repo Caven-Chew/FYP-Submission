@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fyp:general-task-fulfilment-output-schema-draft-01",
+  "type": "object",
+  "properties": {
+    "rubric_id": {
+      "type": "string",
+      "enum": [
+        "general-task-fulfilment-draft-01"
+      ]
+    },
+    "input_review": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "usable",
+            "needs_review"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "contribution": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no",
+        "unknown"
+      ]
+    },
+    "completeness": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no",
+        "unknown"
+      ]
+    },
+    "contribution_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contribution_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "requirement_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "requirement_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "met",
+              "not_met",
+              "uncertain"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "requirement_id",
+          "verdict",
+          "reason",
+          "evidence_ids"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "uncertainty_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "rubric_id",
+    "input_review",
+    "contribution",
+    "completeness",
+    "contribution_reason",
+    "contribution_evidence_ids",
+    "requirement_checks",
+    "uncertainty_reason"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,44 @@
+{# Task 8: unfinished multi-turn conversations and archived trajectories for benchmark `b`. #}
+{% set unfinished = unfinished_trajectories(b.id) %}
+{% if unfinished or b.trajectory_archives %}
+<details class="small" id="trajectory-archives" data-trajectory-archives="{{ b.id }}"{% if unfinished %} open{% endif %}>
+    <summary>Multi-turn recovery ({{ unfinished|length }} unfinished conversation{{ '' if unfinished|length == 1 else 's' }}, {{ b.trajectory_archives|length }} archived)</summary>
+    <p>Every multi-turn target send is saved as it happens. An interrupted conversation resumes from its last complete turn: the saved turns are replayed to PyRIT as a prepended conversation and the attack continues within its original turn budget. A browser UI target cannot take replayed turns, so its conversation restarts from turn 1 instead. TAP and PAIR resume seeds the search with the saved branch only; the rest of the tree is not restored. Archived rows and trajectories are kept for audit and excluded from current results.</p>
+    {% if unfinished %}
+    <table class="table">
+        <thead><tr><th>Conversation</th><th>Attacker / attempt</th><th>Status</th><th>Turns saved</th><th>Action</th></tr></thead>
+        <tbody>{% for t in unfinished %}
+        <tr>
+            <td><code>{{ t.attack_slug }}</code> · <code>{{ t.objective_id }}</code> (#{{ t.id }})</td>
+            <td>{{ t.converter_used or 'configured attacker' }} · attempt {{ t.attempt + 1 }}</td>
+            <td>{{ t.status }}{% if t.note %}<div class="muted">{{ t.note }}</div>{% endif %}</td>
+            <td>{{ t.turns_recorded }}{% if t.max_turns %} of {{ t.max_turns }}{% endif %}</td>
+            <td>{% if t.status == 'interrupted' and b.status in trajectory_resume_states() %}
+                <form method="post" action="{{ url_for('main.benchmarks_resume_trajectory', bid=b.id, tid=t.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-link" type="submit">Resume this conversation</button>
+                </form>
+                {% elif t.status == 'failed' %}Use Retry failed or Rerun conversation; saved turns are resumed.
+                {% else %}Available when the benchmark is not running.{% endif %}</td>
+        </tr>
+        {% endfor %}</tbody>
+    </table>
+    {% endif %}
+    {% if b.trajectory_archives %}
+    <table class="table">
+        <thead><tr><th>Archive</th><th>Reason</th><th>Conversation</th><th>Rows replaced</th><th>Trajectory archived</th></tr></thead>
+        <tbody>{% for a in b.trajectory_archives %}
+        {% set tj = a.trajectory %}
+        <tr>
+            <td>#{{ a.id }}<div class="muted">{{ a.created_at }} UTC</div></td>
+            <td>{{ a.reason }}</td>
+            <td><code>{{ a.attack_slug }}</code>{% if a.objective_id %} · <code>{{ a.objective_id }}</code>{% endif %}{% if a.attempt is not none %} · attempt {{ a.attempt + 1 }}{% endif %}</td>
+            <td>{{ a.original_rows|length }}{% if a.conversation_retry_id %} (shown under Previous conversation results){% endif %}</td>
+            <td>{% if tj %}#{{ tj.id }}: {{ tj.turns_recorded }} turn(s) saved, {{ (tj.turns or [])|length }} send(s){% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}</tbody>
+    </table>
+    {% endif %}
+    <a href="{{ url_for('main.benchmarks_trajectories_json', bid=b.id) }}">Trajectory export (JSON)</a>
+</details>
+{% endif %}

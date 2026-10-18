@@ -1,0 +1,862 @@
+{
+  "tool": "historical_threshold_analysis.py",
+  "tool_version": "1.0.0",
+  "tool_sha256": "3c5836da52405b99f3159b385d59fac263f3614c0855f307a56e599cd5391f54",
+  "command": "attempts",
+  "generated_utc": "2026-09-19T02:33:52Z",
+  "python": "3.12.14",
+  "read_only": "sqlite3 URI mode=ro plus PRAGMA query_only=1; SELECT/PRAGMA only",
+  "metadata_only": "free-text columns are rejected before execution; response is used only in an emptiness predicate",
+  "database": {
+    "file": "app.db",
+    "path": "<source-project>/instance/app.db",
+    "size_bytes": 42487808,
+    "modified_utc": "2026-09-17T05:30:56Z"
+  },
+  "scope": {
+    "attacks": "static, harm rubric",
+    "rows": "retained (delivered) rows only: status ok/recovered with a non-empty reply, so error rows and converter refusals are excluded",
+    "group_key": "(benchmark_id, attempt_group); attempt_group values are opaque and are never printed",
+    "success_definition": "severity >= 3, the threshold the runs were executed at"
+  },
+  "all_time": {
+    "label": "all_time",
+    "window": {
+      "start": null,
+      "end": null
+    },
+    "total_groups": 3005,
+    "multi_attempt_groups": 1045,
+    "single_attempt_groups": 1960,
+    "groups_spanning_more_than_one_attack_slug": 0,
+    "observed_attempt_count_distribution": {
+      "1": 1960,
+      "2": 207,
+      "3": 689,
+      "4": 16,
+      "5": 11,
+      "6": 8,
+      "7": 4,
+      "8": 14,
+      "9": 2,
+      "10": 94
+    },
+    "first_success_attempt_index_distribution": {
+      "0": 783,
+      "1": 194,
+      "2": 95,
+      "3": 14,
+      "4": 9,
+      "5": 7,
+      "6": 4,
+      "7": 2,
+      "8": 1,
+      "9": 1
+    },
+    "by_attack": [
+      {
+        "attack_slug": "advbench",
+        "catalog_attempts_now": null,
+        "groups": 185,
+        "multi_attempt_groups": 14,
+        "retained_rows": 212,
+        "observed_attempt_counts": {
+          "1": 171,
+          "2": 1,
+          "3": 13
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 10,
+        "groups_without_success": 175,
+        "first_success_attempt_index": {
+          "0": 9,
+          "1": 1
+        }
+      },
+      {
+        "attack_slug": "forbidden_questions",
+        "catalog_attempts_now": null,
+        "groups": 183,
+        "multi_attempt_groups": 15,
+        "retained_rows": 211,
+        "observed_attempt_counts": {
+          "1": 168,
+          "2": 2,
+          "3": 13
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 8,
+        "groups_without_success": 175,
+        "first_success_attempt_index": {
+          "0": 6,
+          "1": 2
+        }
+      },
+      {
+        "attack_slug": "harmbench",
+        "catalog_attempts_now": null,
+        "groups": 192,
+        "multi_attempt_groups": 20,
+        "retained_rows": 230,
+        "observed_attempt_counts": {
+          "1": 172,
+          "2": 2,
+          "3": 18
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 5,
+        "groups_without_success": 187,
+        "first_success_attempt_index": {
+          "0": 3,
+          "1": 1,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_base64",
+        "catalog_attempts_now": null,
+        "groups": 144,
+        "multi_attempt_groups": 17,
+        "retained_rows": 172,
+        "observed_attempt_counts": {
+          "1": 127,
+          "2": 6,
+          "3": 11
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 21,
+        "groups_without_success": 123,
+        "first_success_attempt_index": {
+          "0": 21
+        }
+      },
+      {
+        "attack_slug": "harmbench_codechameleon",
+        "catalog_attempts_now": 1,
+        "groups": 131,
+        "multi_attempt_groups": 0,
+        "retained_rows": 131,
+        "observed_attempt_counts": {
+          "1": 131
+        },
+        "max_observed_attempt_index": 0,
+        "groups_with_success_at_threshold_3": 122,
+        "groups_without_success": 9,
+        "first_success_attempt_index": {
+          "0": 122
+        }
+      },
+      {
+        "attack_slug": "harmbench_composition_sweep",
+        "catalog_attempts_now": null,
+        "groups": 163,
+        "multi_attempt_groups": 90,
+        "retained_rows": 416,
+        "observed_attempt_counts": {
+          "1": 73,
+          "2": 31,
+          "3": 22,
+          "4": 11,
+          "5": 8,
+          "6": 6,
+          "7": 1,
+          "8": 11
+        },
+        "max_observed_attempt_index": 7,
+        "groups_with_success_at_threshold_3": 148,
+        "groups_without_success": 15,
+        "first_success_attempt_index": {
+          "0": 67,
+          "1": 34,
+          "2": 23,
+          "3": 11,
+          "4": 6,
+          "5": 5,
+          "6": 2
+        }
+      },
+      {
+        "attack_slug": "harmbench_leetspeak",
+        "catalog_attempts_now": null,
+        "groups": 151,
+        "multi_attempt_groups": 18,
+        "retained_rows": 184,
+        "observed_attempt_counts": {
+          "1": 133,
+          "2": 3,
+          "3": 15
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 34,
+        "groups_without_success": 117,
+        "first_success_attempt_index": {
+          "0": 30,
+          "1": 3,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_lowresource",
+        "catalog_attempts_now": 3,
+        "groups": 129,
+        "multi_attempt_groups": 77,
+        "retained_rows": 263,
+        "observed_attempt_counts": {
+          "1": 52,
+          "2": 20,
+          "3": 57
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 76,
+        "groups_without_success": 53,
+        "first_success_attempt_index": {
+          "0": 51,
+          "1": 19,
+          "2": 6
+        }
+      },
+      {
+        "attack_slug": "harmbench_manyshot_32",
+        "catalog_attempts_now": 1,
+        "groups": 129,
+        "multi_attempt_groups": 0,
+        "retained_rows": 129,
+        "observed_attempt_counts": {
+          "1": 129
+        },
+        "max_observed_attempt_index": 0,
+        "groups_with_success_at_threshold_3": 5,
+        "groups_without_success": 124,
+        "first_success_attempt_index": {
+          "0": 5
+        }
+      },
+      {
+        "attack_slug": "harmbench_manyshot_8",
+        "catalog_attempts_now": 1,
+        "groups": 133,
+        "multi_attempt_groups": 0,
+        "retained_rows": 133,
+        "observed_attempt_counts": {
+          "1": 133
+        },
+        "max_observed_attempt_index": 0,
+        "groups_with_success_at_threshold_3": 3,
+        "groups_without_success": 130,
+        "first_success_attempt_index": {
+          "0": 3
+        }
+      },
+      {
+        "attack_slug": "harmbench_manyshot_poetry",
+        "catalog_attempts_now": 3,
+        "groups": 131,
+        "multi_attempt_groups": 115,
+        "retained_rows": 355,
+        "observed_attempt_counts": {
+          "1": 16,
+          "2": 6,
+          "3": 109
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 23,
+        "groups_without_success": 108,
+        "first_success_attempt_index": {
+          "0": 16,
+          "1": 4,
+          "2": 3
+        }
+      },
+      {
+        "attack_slug": "harmbench_math",
+        "catalog_attempts_now": 3,
+        "groups": 135,
+        "multi_attempt_groups": 114,
+        "retained_rows": 356,
+        "observed_attempt_counts": {
+          "1": 21,
+          "2": 7,
+          "3": 107
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 28,
+        "groups_without_success": 107,
+        "first_success_attempt_index": {
+          "0": 20,
+          "1": 7,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_persuasion",
+        "catalog_attempts_now": 3,
+        "groups": 134,
+        "multi_attempt_groups": 67,
+        "retained_rows": 248,
+        "observed_attempt_counts": {
+          "1": 67,
+          "2": 20,
+          "3": 47
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 97,
+        "groups_without_success": 37,
+        "first_success_attempt_index": {
+          "0": 67,
+          "1": 20,
+          "2": 10
+        }
+      },
+      {
+        "attack_slug": "harmbench_persuasion_tense",
+        "catalog_attempts_now": 3,
+        "groups": 131,
+        "multi_attempt_groups": 43,
+        "retained_rows": 200,
+        "observed_attempt_counts": {
+          "1": 88,
+          "2": 17,
+          "3": 26
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 111,
+        "groups_without_success": 20,
+        "first_success_attempt_index": {
+          "0": 87,
+          "1": 17,
+          "2": 7
+        }
+      },
+      {
+        "attack_slug": "harmbench_poetry",
+        "catalog_attempts_now": 3,
+        "groups": 140,
+        "multi_attempt_groups": 88,
+        "retained_rows": 290,
+        "observed_attempt_counts": {
+          "1": 52,
+          "2": 26,
+          "3": 62
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 87,
+        "groups_without_success": 53,
+        "first_success_attempt_index": {
+          "0": 52,
+          "1": 24,
+          "2": 11
+        }
+      },
+      {
+        "attack_slug": "harmbench_rot13",
+        "catalog_attempts_now": null,
+        "groups": 139,
+        "multi_attempt_groups": 19,
+        "retained_rows": 175,
+        "observed_attempt_counts": {
+          "1": 120,
+          "2": 2,
+          "3": 17
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 56,
+        "groups_without_success": 83,
+        "first_success_attempt_index": {
+          "0": 53,
+          "1": 2,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_tense",
+        "catalog_attempts_now": 3,
+        "groups": 164,
+        "multi_attempt_groups": 96,
+        "retained_rows": 338,
+        "observed_attempt_counts": {
+          "1": 68,
+          "2": 18,
+          "3": 78
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 97,
+        "groups_without_success": 67,
+        "first_success_attempt_index": {
+          "0": 62,
+          "1": 18,
+          "2": 17
+        }
+      },
+      {
+        "attack_slug": "harmbench_tense_poetry",
+        "catalog_attempts_now": 3,
+        "groups": 163,
+        "multi_attempt_groups": 111,
+        "retained_rows": 350,
+        "observed_attempt_counts": {
+          "1": 52,
+          "2": 35,
+          "3": 76
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 91,
+        "groups_without_success": 72,
+        "first_success_attempt_index": {
+          "0": 49,
+          "1": 31,
+          "2": 11
+        }
+      },
+      {
+        "attack_slug": "harmbench_variation_bon",
+        "catalog_attempts_now": 10,
+        "groups": 140,
+        "multi_attempt_groups": 126,
+        "retained_rows": 1096,
+        "observed_attempt_counts": {
+          "1": 14,
+          "2": 10,
+          "3": 4,
+          "4": 5,
+          "5": 3,
+          "6": 2,
+          "7": 3,
+          "8": 3,
+          "9": 2,
+          "10": 94
+        },
+        "max_observed_attempt_index": 9,
+        "groups_with_success_at_threshold_3": 37,
+        "groups_without_success": 103,
+        "first_success_attempt_index": {
+          "0": 10,
+          "1": 10,
+          "2": 3,
+          "3": 3,
+          "4": 3,
+          "5": 2,
+          "6": 2,
+          "7": 2,
+          "8": 1,
+          "9": 1
+        }
+      },
+      {
+        "attack_slug": "xstest",
+        "catalog_attempts_now": null,
+        "groups": 188,
+        "multi_attempt_groups": 15,
+        "retained_rows": 217,
+        "observed_attempt_counts": {
+          "1": 173,
+          "2": 1,
+          "3": 14
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 51,
+        "groups_without_success": 137,
+        "first_success_attempt_index": {
+          "0": 50,
+          "1": 1
+        }
+      }
+    ]
+  },
+  "historical_window": {
+    "label": "historical_window",
+    "window": {
+      "start": "2026-05-11",
+      "end": "2026-08-16"
+    },
+    "total_groups": 646,
+    "multi_attempt_groups": 287,
+    "single_attempt_groups": 359,
+    "groups_spanning_more_than_one_attack_slug": 0,
+    "observed_attempt_count_distribution": {
+      "1": 359,
+      "2": 40,
+      "3": 220,
+      "4": 1,
+      "5": 3,
+      "6": 1,
+      "7": 1,
+      "8": 9,
+      "9": 1,
+      "10": 11
+    },
+    "first_success_attempt_index_distribution": {
+      "0": 101,
+      "1": 28,
+      "2": 10,
+      "4": 1,
+      "5": 1,
+      "7": 1
+    },
+    "by_attack": [
+      {
+        "attack_slug": "advbench",
+        "catalog_attempts_now": null,
+        "groups": 68,
+        "multi_attempt_groups": 14,
+        "retained_rows": 95,
+        "observed_attempt_counts": {
+          "1": 54,
+          "2": 1,
+          "3": 13
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 8,
+        "groups_without_success": 60,
+        "first_success_attempt_index": {
+          "0": 7,
+          "1": 1
+        }
+      },
+      {
+        "attack_slug": "forbidden_questions",
+        "catalog_attempts_now": null,
+        "groups": 68,
+        "multi_attempt_groups": 15,
+        "retained_rows": 96,
+        "observed_attempt_counts": {
+          "1": 53,
+          "2": 2,
+          "3": 13
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 5,
+        "groups_without_success": 63,
+        "first_success_attempt_index": {
+          "0": 3,
+          "1": 2
+        }
+      },
+      {
+        "attack_slug": "harmbench",
+        "catalog_attempts_now": null,
+        "groups": 76,
+        "multi_attempt_groups": 20,
+        "retained_rows": 114,
+        "observed_attempt_counts": {
+          "1": 56,
+          "2": 2,
+          "3": 18
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 2,
+        "groups_without_success": 74,
+        "first_success_attempt_index": {
+          "1": 1,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_base64",
+        "catalog_attempts_now": null,
+        "groups": 34,
+        "multi_attempt_groups": 17,
+        "retained_rows": 62,
+        "observed_attempt_counts": {
+          "1": 17,
+          "2": 6,
+          "3": 11
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 2,
+        "groups_without_success": 32,
+        "first_success_attempt_index": {
+          "0": 2
+        }
+      },
+      {
+        "attack_slug": "harmbench_codechameleon",
+        "catalog_attempts_now": 1,
+        "groups": 20,
+        "multi_attempt_groups": 0,
+        "retained_rows": 20,
+        "observed_attempt_counts": {
+          "1": 20
+        },
+        "max_observed_attempt_index": 0,
+        "groups_with_success_at_threshold_3": 18,
+        "groups_without_success": 2,
+        "first_success_attempt_index": {
+          "0": 18
+        }
+      },
+      {
+        "attack_slug": "harmbench_composition_sweep",
+        "catalog_attempts_now": null,
+        "groups": 20,
+        "multi_attempt_groups": 11,
+        "retained_rows": 83,
+        "observed_attempt_counts": {
+          "1": 9,
+          "2": 1,
+          "5": 2,
+          "6": 1,
+          "8": 7
+        },
+        "max_observed_attempt_index": 7,
+        "groups_with_success_at_threshold_3": 12,
+        "groups_without_success": 8,
+        "first_success_attempt_index": {
+          "0": 8,
+          "1": 2,
+          "4": 1,
+          "5": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_leetspeak",
+        "catalog_attempts_now": null,
+        "groups": 39,
+        "multi_attempt_groups": 18,
+        "retained_rows": 72,
+        "observed_attempt_counts": {
+          "1": 21,
+          "2": 3,
+          "3": 15
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 8,
+        "groups_without_success": 31,
+        "first_success_attempt_index": {
+          "0": 4,
+          "1": 3,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_lowresource",
+        "catalog_attempts_now": 3,
+        "groups": 20,
+        "multi_attempt_groups": 14,
+        "retained_rows": 46,
+        "observed_attempt_counts": {
+          "1": 6,
+          "2": 2,
+          "3": 12
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 8,
+        "groups_without_success": 12,
+        "first_success_attempt_index": {
+          "0": 6,
+          "1": 2
+        }
+      },
+      {
+        "attack_slug": "harmbench_manyshot_32",
+        "catalog_attempts_now": 1,
+        "groups": 10,
+        "multi_attempt_groups": 0,
+        "retained_rows": 10,
+        "observed_attempt_counts": {
+          "1": 10
+        },
+        "max_observed_attempt_index": 0,
+        "groups_with_success_at_threshold_3": 0,
+        "groups_without_success": 10,
+        "first_success_attempt_index": {}
+      },
+      {
+        "attack_slug": "harmbench_manyshot_8",
+        "catalog_attempts_now": 1,
+        "groups": 12,
+        "multi_attempt_groups": 0,
+        "retained_rows": 12,
+        "observed_attempt_counts": {
+          "1": 12
+        },
+        "max_observed_attempt_index": 0,
+        "groups_with_success_at_threshold_3": 0,
+        "groups_without_success": 12,
+        "first_success_attempt_index": {}
+      },
+      {
+        "attack_slug": "harmbench_math",
+        "catalog_attempts_now": 3,
+        "groups": 26,
+        "multi_attempt_groups": 26,
+        "retained_rows": 78,
+        "observed_attempt_counts": {
+          "3": 26
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 0,
+        "groups_without_success": 26,
+        "first_success_attempt_index": {}
+      },
+      {
+        "attack_slug": "harmbench_persuasion",
+        "catalog_attempts_now": 3,
+        "groups": 30,
+        "multi_attempt_groups": 22,
+        "retained_rows": 71,
+        "observed_attempt_counts": {
+          "1": 8,
+          "2": 3,
+          "3": 19
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 15,
+        "groups_without_success": 15,
+        "first_success_attempt_index": {
+          "0": 8,
+          "1": 3,
+          "2": 4
+        }
+      },
+      {
+        "attack_slug": "harmbench_persuasion_tense",
+        "catalog_attempts_now": 3,
+        "groups": 20,
+        "multi_attempt_groups": 10,
+        "retained_rows": 36,
+        "observed_attempt_counts": {
+          "1": 10,
+          "2": 4,
+          "3": 6
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 15,
+        "groups_without_success": 5,
+        "first_success_attempt_index": {
+          "0": 10,
+          "1": 4,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_poetry",
+        "catalog_attempts_now": 3,
+        "groups": 30,
+        "multi_attempt_groups": 24,
+        "retained_rows": 76,
+        "observed_attempt_counts": {
+          "1": 6,
+          "2": 2,
+          "3": 22
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 8,
+        "groups_without_success": 22,
+        "first_success_attempt_index": {
+          "0": 6,
+          "1": 1,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_rot13",
+        "catalog_attempts_now": null,
+        "groups": 26,
+        "multi_attempt_groups": 19,
+        "retained_rows": 62,
+        "observed_attempt_counts": {
+          "1": 7,
+          "2": 2,
+          "3": 17
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 3,
+        "groups_without_success": 23,
+        "first_success_attempt_index": {
+          "1": 2,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_tense",
+        "catalog_attempts_now": 3,
+        "groups": 28,
+        "multi_attempt_groups": 18,
+        "retained_rows": 60,
+        "observed_attempt_counts": {
+          "1": 10,
+          "2": 4,
+          "3": 14
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 10,
+        "groups_without_success": 18,
+        "first_success_attempt_index": {
+          "0": 9,
+          "1": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_tense_poetry",
+        "catalog_attempts_now": 3,
+        "groups": 28,
+        "multi_attempt_groups": 25,
+        "retained_rows": 72,
+        "observed_attempt_counts": {
+          "1": 3,
+          "2": 6,
+          "3": 19
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 7,
+        "groups_without_success": 21,
+        "first_success_attempt_index": {
+          "0": 3,
+          "1": 3,
+          "2": 1
+        }
+      },
+      {
+        "attack_slug": "harmbench_variation_bon",
+        "catalog_attempts_now": 10,
+        "groups": 20,
+        "multi_attempt_groups": 19,
+        "retained_rows": 157,
+        "observed_attempt_counts": {
+          "1": 1,
+          "2": 1,
+          "3": 1,
+          "4": 1,
+          "5": 1,
+          "7": 1,
+          "8": 2,
+          "9": 1,
+          "10": 11
+        },
+        "max_observed_attempt_index": 9,
+        "groups_with_success_at_threshold_3": 3,
+        "groups_without_success": 17,
+        "first_success_attempt_index": {
+          "1": 2,
+          "7": 1
+        }
+      },
+      {
+        "attack_slug": "xstest",
+        "catalog_attempts_now": null,
+        "groups": 71,
+        "multi_attempt_groups": 15,
+        "retained_rows": 100,
+        "observed_attempt_counts": {
+          "1": 56,
+          "2": 1,
+          "3": 14
+        },
+        "max_observed_attempt_index": 2,
+        "groups_with_success_at_threshold_3": 18,
+        "groups_without_success": 53,
+        "first_success_attempt_index": {
+          "0": 17,
+          "1": 1
+        }
+      }
+    ]
+  },
+  "delivered_static_rows_without_attempt_group": 957,
+  "limitations": [
+    "A best-of-N sequence stops at the first judged success, so an unbroken objective leaves the full budget of rows and a broken one leaves only the attempts up to and including the success. Success-within-N computed from these records is therefore valid only at the threshold the run used (severity >= 3); at a higher threshold the later attempts that were never executed are missing, and at a lower threshold the sequence would have stopped earlier.",
+    "The attempt budget recorded in the catalog is the budget in the code today. The budget actually used for a historical run is not stored per row, so the observed attempt count is the only direct evidence of the budget in force.",
+    "Rows written before best-of-N existed carry no attempt group and are excluded from every group count here.",
+    "Attempts within a group share one seed objective and are not independent trials."
+  ]
+}

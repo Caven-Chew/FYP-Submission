@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="metrics">
+    <div class="metric"><span>Targets</span><b>{{ targets }}</b></div>
+    <div class="metric"><span>Benchmarks</span><b>{{ benchmarks }}</b></div>
+    <div class="metric"><span>Prompts sent</span><b>{{ total_prompts }}</b></div>
+    <div class="metric"><span>Successful attacks</span><b>{{ total_successes }} ({{ success_rate }}%)</b></div>
+</div>
+
+<h2>Recent benchmarks</h2>
+{% if recent %}
+<table class="table">
+    <thead><tr><th>#</th><th>Name</th><th>Target</th><th>Status</th><th>Risk</th><th>Created</th></tr></thead>
+    <tbody>
+    {% for b in recent %}
+        <tr>
+            <td>#{{ b.id }}</td>
+            <td><a href="{{ url_for('main.benchmarks_detail', bid=b.id) }}">{{ b.name }}</a></td>
+            <td>{{ b.target.name }}</td>
+            <td><span class="pill pill--{{ b.status }}">{{ b.status }}</span></td>
+            <td>{{ b.risk_score }}</td>
+            <td>{{ b.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">No benchmarks yet. <a href="{{ url_for('main.benchmarks_new') }}">Run one →</a></p>
+{% endif %}
+{% endblock %}

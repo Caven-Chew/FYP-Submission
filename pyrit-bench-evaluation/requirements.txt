@@ -1,0 +1,5 @@
+# Core numeric analyses use Python standard library; optional charts/XLSX helpers:
+matplotlib==3.11.2
+openpyxl==3.1.5
+Pillow==12.3.0
+reportlab==4.5.1

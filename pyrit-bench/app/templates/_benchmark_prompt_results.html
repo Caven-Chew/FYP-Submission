@@ -1,0 +1,109 @@
+{% set judge_method = two_label.run_method(b) %}
+{% for slug, blocks in display_groups.items() %}
+{% set atk = by_slug(slug) %}
+<h3 id="a-{{ slug }}">{{ atk.name if atk else slug }}
+    {% if atk and atk.taxonomy_category %}<small class="muted">[{{ atk.taxonomy_category }}]</small>{% endif %}
+</h3>
+
+{% for block in blocks %}
+    {% if block.kind == 'singles' %}
+    <table class="table table--prompts">
+        <thead><tr><th>#</th><th>Taxonomy</th><th>Prompt</th><th>Response</th><th>Lat.</th><th>{{ 'Assessment' if judge_method == 'two_label' and not (atk and atk.get('scoring') == 'leak') else 'Severity' }}</th></tr></thead>
+        <tbody>
+        {% for p in block.prompts %}
+        {# Best-of-N / sweep fan a single seed into several rows that share one
+           seed index. Tag the seed number with the attempt so the repeats read
+           as "seed 1, attempt 2/3" instead of a wall of identical "#1"s, and dim
+           the follow-up rows so they visibly belong to the seed above. #}
+        <tr{% if p.attempt %} class="attempt-followup"{% endif %}>
+            <td>{{ p.sequence + 1 }}{% if p.attempt %} <span class="muted small">· attempt {{ p.attempt + 1 }}</span>{% endif %}{% if p.objective_id %}<div class="muted small">{{ p.objective_id }}</div>{% endif %}</td>
+            <td><small><code>{{ p.taxonomy_category or '—' }}</code></small></td>
+            <td><pre class="cell">{{ p.prompt_text }}</pre>
+                {% if p.converter_used %}<small>via {{ p.converter_used }}</small>{% endif %}</td>
+            <td><pre class="cell">{{ p.response or '' }}</pre>
+                {% if p.error %}
+                <details class="small" data-prompt-error="{{ p.id }}"><summary class="bad" style="cursor:pointer;">error — show</summary>
+                    <pre class="cell">{{ p.error }}</pre></details>
+                {% endif %}
+                {% include "_judge_explanation.html" %}
+                {% include "_two_label_row.html" %}</td>
+            <td>{{ p.latency_ms or '—' }}</td>
+            <td>
+                {% if p.error %}<span class="pill pill--failed">err</span>
+                {% elif p.severity %}<span class="sev-badge sev-{{ p.severity }}">{{ p.severity }}</span>
+                {% elif two_label.row_method(p) != 'two_label' %}<span class="pill">—</span>{% endif %}
+                {% include "_two_label_badges.html" %}
+                {% include "_scoring_recovery.html" %}
+                {% include "_static_execution_history.html" %}
+                {% if p.can_rerun %}
+                <form method="post" action="{{ url_for('main.benchmarks_rerun_prompt', bid=b.id, pid=p.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-link" type="submit" {% if b.status not in ('completed', 'failed', 'completed_with_target_errors', 'stopped', 'interrupted') %}disabled{% endif %}>{{ p.retry_label }}</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    {% else %}
+    {# ── Multi-turn conversation: one Crescendo / Red-Teaming attempt, threaded
+         turn-by-turn instead of shown as unrelated flat rows. ── #}
+    {% set turns = block.turns %}
+    {% set peak_sevs = turns | selectattr('severity') | map(attribute='severity') | list %}
+    <div class="card" style="margin-bottom:16px;border-left:3px solid #6366f1;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            <strong>Conversation <code>{{ block.objective_id }}</code></strong>
+            <span class="muted small">
+                {{ turns|length }} turn{{ 's' if turns|length != 1 else '' }}
+                {% if peak_sevs %} &middot; peak severity <span class="sev-badge sev-{{ peak_sevs|max }}">{{ peak_sevs|max }}</span>{% endif %}
+                {% if turns | selectattr('succeeded') | list %} &middot; <span class="pill pill--failed">succeeded</span>{% endif %}
+                {% set answered = turns | selectattr('counts_toward_stats') | list %}
+                {% if judge_method != 'severity' and answered %}
+                {% set final_tl = two_label.current_assessment(answered[-1]) %}
+                &middot; final turn: <span class="pill">{{ two_label.objective_badge(final_tl) }}</span> · <span class="pill">{{ two_label.fulfilment_badge(final_tl) }}</span>
+                {% endif %}
+            </span>
+        </div>
+        <table class="table table--prompts">
+            <thead><tr><th>Turn</th><th>Prompt</th><th>Response</th><th>Lat.</th><th>{{ 'Assessment' if judge_method == 'two_label' else 'Severity' }}</th></tr></thead>
+            <tbody>
+            {% for p in turns %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><pre class="cell">{{ p.prompt_text }}</pre></td>
+                <td><pre class="cell">{{ p.response or '' }}</pre>
+                    {% if p.error %}
+                    <details class="small" data-prompt-error="{{ p.id }}"><summary class="bad" style="cursor:pointer;">error — show</summary>
+                        <pre class="cell">{{ p.error }}</pre></details>
+                    {% endif %}
+                    {% include "_judge_explanation.html" %}
+                    {% include "_two_label_row.html" %}</td>
+                <td>{{ p.latency_ms or '—' }}</td>
+                <td>
+                    {% if p.error %}<span class="pill pill--failed">err</span>
+                    {% elif p.severity %}<span class="sev-badge sev-{{ p.severity }}">{{ p.severity }}</span>
+                    {% elif two_label.row_method(p) != 'two_label' %}<span class="pill">—</span>{% endif %}
+                    {% include "_two_label_badges.html" %}
+                    {% include "_scoring_recovery.html" %}
+                {% include "_static_execution_history.html" %}
+                {% if p.can_rerun %}
+                    <form method="post" action="{{ url_for('main.benchmarks_rerun_prompt', bid=b.id, pid=p.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn-link" type="submit" {% if b.status not in ('completed', 'failed', 'completed_with_target_errors', 'stopped', 'interrupted') %}disabled{% endif %}>{{ p.retry_label }}</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% include "_conversation_recovery.html" ignore missing %}
+    </div>
+    {% endif %}
+{% endfor %}
+{% endfor %}
+
+{% include "_request_history.html" %}
+{% include "_trajectory_archives.html" ignore missing %}

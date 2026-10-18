@@ -1,0 +1,762 @@
+{% extends "base.html" %}
+{% block content %}
+{# Add-Target page: API (simple model+key by default, raw request under Advanced) / UI; with connection testing. #}
+{# In Docker the capture browser is only visible through noVNC (finding #20); wording as README.md, Configuration and troubleshooting. #}
+{% macro docker_note(id='') %}{% if in_docker %}<p class="docker-note"{% if id %} id="{{ id }}"{% endif %}>In Docker, the capture browser runs inside the container, so it does not appear on your desktop. <a href="http://127.0.0.1:6080/vnc.html" target="_blank" rel="noopener">Open the capture window</a> (http://127.0.0.1:6080/vnc.html) and click <strong>Connect</strong>. You can then see and click inside the window that <strong>Capture from the page</strong> and <strong>Log in &amp; save session</strong> open.</p>{% endif %}{% endmacro %}
+<h1>LLM Targets</h1>
+
+{% if rules %}<div class="rules-box"><strong>Rules of engagement.</strong> {{ rules }}</div>{% endif %}
+
+<style>
+  .conn-types { display:flex; gap:10px; margin:6px 0 4px; }
+  .conn-card { flex:1; border:1px solid #cbd5e1; border-radius:10px; padding:10px 14px;
+               cursor:pointer; display:flex; gap:10px; align-items:flex-start; }
+  .conn-card:hover { border-color:#93c5fd; background:#f8fafc; }
+  .conn-card input { margin-top:3px; }
+  .conn-card.active { border-color:#2563eb; background:#eff6ff; }
+  .conn-card strong { display:block; }
+  .field-box { border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; background:#f8fafc; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 8px; }
+  .chip { cursor:pointer; border:1px solid #cbd5e1; background:#fff; border-radius:999px;
+          padding:5px 14px; font-size:13px; color:#334155; }
+  .chip:hover { background:#eff6ff; border-color:#93c5fd; }
+  .chip.active { border-color:#2563eb; background:#eff6ff; color:#1e3a8a; font-weight:600; }
+  .btn-row { display:flex; gap:12px; align-items:center; margin-top:6px; }
+  .test-out { margin-top:10px; }
+  .test-ok { color:#15803d; font-weight:600; }
+  .test-fail { color:#b91c1c; font-weight:600; }
+  .test-warn { color:#b45309; font-weight:600; }
+  .test-reply code { background:#f1f5f9; padding:1px 5px; border-radius:4px; }
+  .test-hint { margin-top:6px; border-left:3px solid #f59e0b; background:#fffbeb; padding:8px 10px; border-radius:6px; }
+  .test-hint pre { margin:4px 0 0; white-space:pre-wrap; font-size:12px; color:#92400e; }
+  /* One labelled block per kind of information, so what failed, what a model
+     guessed about it, and what to do next are never run together as prose.
+     Each block is identified by its text label, not by its colour alone. */
+  .test-block { margin-top:8px; padding:7px 10px; border-left:3px solid #cbd5e1;
+                background:#f8fafc; border-radius:6px; }
+  .test-block--error { border-left-color:#b91c1c; background:#fef2f2; }
+  .test-block--diag  { border-left-color:#64748b; }
+  .test-block__label { font-size:10.5px; font-weight:700; letter-spacing:.07em;
+                       text-transform:uppercase; color:#475569; margin-bottom:4px; }
+  .test-block__label .qual { font-weight:400; letter-spacing:0; text-transform:none; color:#64748b; }
+  .test-block__body { margin:0; white-space:pre-wrap; font-size:12px; line-height:1.5;
+                      font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .test-block--diag .test-block__body { font-family:inherit; font-size:12.5px; color:#334155; }
+  .test-block__kind { display:inline-block; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+                      font-size:11px; font-weight:700; background:#fee2e2; color:#991b1b;
+                      padding:1px 6px; border-radius:4px; margin-bottom:4px; }
+  tr.test-row td { border-top:0; padding-top:0; }
+</style>
+
+<details class="card" {% if not targets or prefill %}open{% endif %}>
+    <summary><strong>+ Add a target</strong></summary>
+    <form method="post" action="{{ url_for('main.targets_create') }}" class="form" id="targetForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="provider" id="providerHidden">
+
+        <label>Name <input type="text" name="name" required></label>
+
+        <label style="margin-bottom:2px;">Connection type</label>
+        <div class="conn-types">
+            <label class="conn-card active" id="cardUi">
+                <input type="radio" name="conn_type" value="ui" checked>
+                <span><strong>UI (browser)</strong><span class="muted small">No API — drive the chat page with Playwright. Slower, for UI-only targets.</span></span>
+            </label>
+            <label class="conn-card" id="cardApi">
+                <input type="radio" name="conn_type" value="api">
+                <span><strong>API</strong><span class="muted small">HTTP endpoint — pick your provider, enter a model and key. Custom shapes live under Advanced.</span></span>
+            </label>
+        </div>
+
+        <!-- ============================ API PANEL ============================ -->
+        <div id="apiPanel">
+            <label style="margin-bottom:2px;">Provider</label>
+            <div id="presetBtns" class="chips"></div>
+
+            <div id="simpleFields">
+                <label>Model <input type="text" id="apiModel" class="mono" placeholder="gpt-4o-mini"></label>
+            </div>
+
+            <label>API key (optional)
+                <input type="password" id="apiKey" name="api_key" class="mono" placeholder="sk-...   (leave blank for local models)" autocomplete="off">
+                <span class="muted small">Stored with this target. Leave blank for local models (Ollama).</span>
+                {% if prefill and prefill.had_key %}<span class="small bad">Enter the API key again: keys are never copied back into this form.</span>{% endif %}
+            </label>
+
+            <div id="bodyErr" class="test-fail" style="display:none;margin:6px 0;"></div>
+
+            <details id="advanced" class="hint">
+                <summary>Advanced — edit the raw request</summary>
+                <label>Endpoint URL
+                    <input type="text" id="apiEndpoint" name="endpoint_url" class="mono" placeholder="https://api.openai.com/v1/chat/completions">
+                </label>
+                <label>Request body (JSON) — the exact payload sent to the API
+                    <textarea id="apiBody" rows="10" class="mono" spellcheck="false" placeholder='{ "model": "...", "messages": [ {"role": "user", "content": "{prompt}"} ] }'></textarea>
+                    <span class="muted small">Use <code>{prompt}</code> for the attack text and <code>{api_key}</code> for your key. In simple mode the <em>Model</em> field above is written into this body for you.</span>
+                </label>
+                <label>Response path — where the reply is in the JSON response
+                    <input type="text" id="apiRespPath" class="mono" placeholder="choices.0.message.content">
+                </label>
+                <label>Headers (optional) — one per line, <code>Name: value</code>
+                    <textarea id="apiHeaders" rows="2" class="mono" spellcheck="false" placeholder="x-api-key: {api_key}"></textarea>
+                </label>
+            </details>
+
+            <details class="hint" style="margin-top:4px;">
+                <summary>Rate limiting — pause between bursts (optional)</summary>
+                <p class="muted small" style="margin:6px 0 8px;">
+                    For providers with a low requests-per-minute cap. After every
+                    <em>N</em> requests the run rests for the given number of seconds,
+                    then carries on. Leave either field blank for no pause.
+                </p>
+                <label>Pause after N requests
+                    <input type="number" id="apiPauseAfterN" class="mono" min="0" step="1" placeholder="e.g. 20">
+                </label>
+                <label>Rest for (seconds)
+                    <input type="number" id="apiPauseRestS" class="mono" min="0" step="1" placeholder="e.g. 60">
+                </label>
+            </details>
+
+            <!-- assembled on submit/test from the fields above -->
+            <textarea id="apiExtra" name="extra_config" style="display:none;"></textarea>
+        </div>
+
+        <!-- ============================ UI PANEL ============================= -->
+        <div id="uiPanel" class="field-box" style="display:none;">
+            <p style="margin:0 0 12px;font-size:13px;color:#475569;">
+                A real browser opens, types each prompt into the page, waits for a
+                response, and captures its text. Enter the page URL, then capture its browser settings.
+            </p>
+            <div style="border:1px solid #c7d2fe;background:#eef2ff;border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+                <strong style="font-size:13px;">Built with Streamlit? (as in the SC3098 chatbot guide)</strong>
+                <p style="margin:4px 0 8px;font-size:12px;color:#475569;">
+                    If your robo-advisor uses <code>st.chat_input</code> and <code>st.chat_message</code>,
+                    click here to fill in the three selectors, then enter your app's address
+                    (usually {{ page_url_hint }}) and press Test connection.
+                    Checked against Streamlit 1.64.
+                </p>
+                <button type="button" class="btn" id="streamlitBtn">Use the Streamlit chat preset</button>
+                <div id="streamlitResult" class="muted small" style="margin-top:8px;"></div>
+            </div>
+
+            <div style="border:1px dashed #93c5fd;background:#eff6ff;border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+                <strong style="font-size:13px;">Capture selectors automatically</strong>
+                <p style="margin:4px 0 8px;font-size:12px;color:#475569;">
+                    Enter the Page URL below, then click here — a browser opens where you click the
+                    message box, the send button, and a reply. The selectors fill in for you, no
+                    DevTools needed.
+                </p>
+                <button type="button" class="btn" id="captureBtn">&#127919; Capture from the page</button>
+                <div id="captureResult" class="muted small" style="margin-top:8px;"></div>
+                {{ docker_note() }}
+            </div>
+
+            <div style="border:1px dashed #fcd34d;background:#fffbeb;border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+                <strong style="font-size:13px;">Authentication (optional)</strong>
+                <p style="margin:4px 0 8px;font-size:12px;color:#475569;">
+                    If the chat page sits behind a login, click here and sign in once in the window
+                    that opens, then press “I’m logged in”. The session is saved and reused for
+                    capture and every test/benchmark. Note: the saved file holds login cookies/tokens.
+                </p>
+                <button type="button" class="btn" id="loginBtn">&#128274; Log in &amp; save session</button>
+                <div id="loginResult" class="muted small" style="margin-top:8px;"></div>
+                {{ docker_note() }}
+                <input type="hidden" name="extra_config_ui_storage_state" id="uiStorageState">
+            </div>
+
+            <input type="hidden" id="uiModel" name="model_name" value="ui_browser" disabled>
+            <textarea id="uiExtra" name="extra_config" style="display:none;" disabled></textarea>
+
+            {% set uip = providers_meta.ui[0] %}
+            {% set captured_keys = ['ui_input_selector', 'ui_submit_selector', 'ui_response_selector', 'ui_pre_actions'] %}
+            {% macro browser_field(f) %}
+            <label>{{ f.label }}
+                <input type="{{ f.type | default('text') }}" name="extra_config_{{ f.key }}"
+                       placeholder="{{ page_url_hint if f.key == 'ui_url' else f.placeholder }}"
+                       {% if f.default %}value="{{ f.default }}"{% endif %} disabled>
+                <span class="muted small">{{ f.hint }}{% if f.key == 'ui_url' %}{% if in_docker %}. Inside Docker, localhost means the container: use http://host.docker.internal:PORT for a bot on your laptop (Streamlit uses 8501).{% else %}, for example http://localhost:PORT (Streamlit uses 8501).{% endif %}{% endif %}</span>
+            </label>
+            {% endmacro %}
+            {% for f in uip.fields if f.key == 'ui_url' %}{{ browser_field(f) }}{% endfor %}
+
+            <details id="uiAdvanced" class="hint" style="margin:10px 0;">
+                <summary>Advanced browser settings</summary>
+                <p class="muted small">Filled automatically by Capture from the page. Open only to inspect or correct the captured settings.</p>
+                {% for f in uip.fields if f.key in captured_keys %}{{ browser_field(f) }}{% endfor %}
+            <details class="hint" style="margin-top:10px;">
+                <summary>How to find the right selectors</summary>
+                <pre style="font-size:12px;line-height:1.6;"># 1. Open the target chatbot in Chrome/Firefox
+# 2. Right-click the input field -> Inspect
+# 3. Look for a unique id, class, or aria attribute, e.g.:
+#    textarea#user-input          (id)
+#    input.chat-input              (class)
+#    [data-testid="send-input"]   (data attribute)
+#
+# For the response, right-click the last assistant message -> Inspect
+# and find a container that each new reply appears in, e.g.:
+#    .message.bot-message
+#    [data-role="assistant"]</pre>
+            </details>
+            </details>
+            {% for f in uip.fields if f.key != 'ui_url' and f.key not in captured_keys %}{{ browser_field(f) }}{% endfor %}
+
+            <label style="flex-direction:row;align-items:center;gap:8px;font-weight:400;margin-top:6px;">
+                <input type="checkbox" name="extra_config_ui_headless" value="true" disabled>
+                Run browser hidden (headless) — faster, but you won't see it. Leave unchecked to watch the run.
+            </label>
+
+        </div>
+
+        <details class="hint" style="margin-top:4px;">
+            <summary>Optional details</summary>
+            <label>Underlying model architecture
+                <textarea name="architecture" rows="2" placeholder="e.g. Transformer decoder, 7B params, RAG over internal docs"></textarea>
+            </label>
+            <label>Notes <textarea name="notes" rows="2"></textarea></label>
+        </details>
+
+        <div class="btn-row">
+            <button type="submit" class="btn">Create target</button>
+            <button type="button" class="btn-link" id="testBtn">Test connection</button>
+        </div>
+        {{ docker_note('testDockerNote') }}
+        <div id="testResult" class="test-out"></div>
+    </form>
+
+    <script>
+    // ---- shared helpers (used by both the form button and the saved-target list) ----
+    window.__CSRF = "{{ csrf_token() }}";
+    window.__esc = function (s) {
+        return (s == null ? '' : String(s)).replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    };
+    // Renders the {response_selector, baseline, attempts:[{collected, added}]}
+    // debug block a BrowserUITarget connection test returns — the raw list of
+    // everything response_sel matched, at baseline and on each settle-wait
+    // attempt, so a bad selector/capture is visible instead of guessed at.
+    window.renderTargetDebug = function (debug) {
+        const esc = window.__esc;
+        const listBlock = (label, items) => {
+            if (!items || !items.length) {
+                return '<div class="muted small" style="margin:4px 0;">' + esc(label) + ': (none)</div>';
+            }
+            const rows = items.map((s, i) =>
+                '<pre class="cell" style="margin:2px 0;">' + (i + 1) + '. ' + esc(s) + '</pre>').join('');
+            return '<div class="muted small" style="margin:6px 0 2px;font-weight:600;">' + esc(label) + ':</div>' + rows;
+        };
+        let h = '<details style="margin-top:8px;">'
+            + '<summary class="muted small">Debug — what the response selector collected</summary>'
+            + '<div style="margin-top:6px;">'
+            + '<div class="muted small">Selector: <code>' + esc(debug.response_selector || '') + '</code></div>'
+            + listBlock('Baseline (before sending)', debug.baseline);
+        (debug.attempts || []).forEach((a, i) => {
+            h += listBlock('Attempt ' + (i + 1) + ' — all collected', a.collected);
+            h += listBlock('Attempt ' + (i + 1) + ' — newly added', a.added);
+        });
+        if (debug.recovered_reply) {
+            h += '<div class="muted small" style="margin:6px 0 2px;font-weight:600;">'
+               + 'Recovered reply (extracted from the page, verified present):</div>'
+               + '<pre class="cell" style="margin:2px 0;">' + esc(debug.recovered_reply) + '</pre>';
+        }
+        if (debug.recovery_rejected) {
+            h += '<div class="muted small" style="margin:6px 0 2px;font-weight:600;">'
+               + 'Recovery rejected:</div>'
+               + '<pre class="cell" style="margin:2px 0;">' + esc(debug.recovery_rejected) + '</pre>';
+        }
+        if (debug.stream_settle) {
+            const s = debug.stream_settle;
+            h += '<div class="muted small" style="margin:6px 0 2px;font-weight:600;">'
+               + 'Streaming settle:</div>';
+            if (s.grew) {
+                h += '<pre class="cell" style="margin:2px 0;">first seen: ' + esc(s.first_seen)
+                   + '\naccepted:   ' + esc(s.final)
+                   + '\n(' + s.polls + ' polls, ' + (s.settled ? 'settled' : 'HIT CEILING — may be truncated') + ')</pre>';
+            } else {
+                h += '<div class="muted small" style="margin:2px 0;">reply did not change after first sighting ('
+                   + s.polls + ' polls, ' + (s.settled ? 'settled' : 'hit ceiling') + ')</div>';
+            }
+        }
+        if (debug.stream_note) {
+            h += '<pre class="cell" style="margin:2px 0;">' + esc(debug.stream_note) + '</pre>';
+        }
+        h += '</div></details>';
+        return h;
+    };
+    window.renderTargetTest = function (el, data, loading) {
+        if (loading) {
+            el.innerHTML = '<span class="muted small">Testing... one model call (UI / browser targets open a window and can take longer).</span>';
+            return;
+        }
+        if (!data) { el.innerHTML = ''; return; }
+        const esc = window.__esc;
+        const lat = (data.latency_ms != null) ? ' · ' + data.latency_ms + ' ms' : '';
+        let h;
+        if (data.ok) {
+            // A reply came back, but it may still be the wrong text — a
+            // fragment of a streamed answer, or a stray element the selector
+            // matched. Say so in the headline rather than under a green tick.
+            const recovered = data.debug && data.debug.recovery_note;
+            h = (data.warning || recovered)
+                ? '<div class="test-warn">&#9888; '
+                  + (recovered ? 'Reply recovered — your selector did not match'
+                               : 'Connected, but the reply looks wrong')
+                  + lat + '</div>'
+                : '<div class="test-ok">&#10003; Connection OK' + lat + '</div>';
+            // A reply other than "pong" is not wrong (a scope-limited bot may refuse
+            // the test instruction), so the server sends a neutral note instead.
+            h += data.note
+                ? '<div class="test-reply muted small">' + esc(data.note) + '</div>'
+                : '<div class="test-reply muted small">Reply: <code>' + esc((data.response || '').slice(0, 300)) + '</code></div>';
+            const flagged = data.warning || (data.debug && data.debug.recovery_note);
+            if (flagged) {
+                h += '<div class="test-block test-block--diag">'
+                   + '<div class="test-block__label">Why this is flagged</div>'
+                   + '<div class="test-block__body">' + esc(flagged) + '</div>'
+                   + '</div>';
+            }
+        } else {
+            h = '<div class="test-fail">&#10007; Failed' + lat + '</div>';
+            if (data.error) {
+                // Split "TimeoutError: message" into a tag plus the message, so
+                // the exception type is scannable instead of buried mid-line.
+                // Only when the prefix is a single bare word ending in Error or
+                // Exception — never mangle a message that merely has a colon.
+                const m = String(data.error).match(/^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception)):\s+([\s\S]+)$/);
+                h += '<div class="test-block test-block--error">'
+                   + '<div class="test-block__label">What failed</div>'
+                   + (m ? '<div class="test-block__kind">' + esc(m[1]) + '</div>' : '')
+                   + '<pre class="test-block__body">' + esc(m ? m[2] : data.error) + '</pre>'
+                   + '</div>';
+            }
+            // The vision model's read of the screenshot. Kept visually distinct
+            // from the error above because it is a guess about a picture, not a
+            // fact the runner observed — and it is wrong often enough to matter.
+            if (data.debug && data.debug.vision_diagnosis) {
+                h += '<div class="test-block test-block--diag">'
+                   + '<div class="test-block__label">Screenshot diagnosis '
+                   + '<span class="qual">— vision LLM, advisory only</span></div>'
+                   + '<div class="test-block__body">' + esc(data.debug.vision_diagnosis) + '</div>'
+                   + '</div>';
+            }
+            if (data.hint) h += '<div class="test-hint"><strong>' + esc(data.hint.title) + '</strong><pre>' + esc(data.hint.action) + '</pre></div>';
+        }
+        if (data.debug) h += window.renderTargetDebug(data.debug);
+        el.innerHTML = h;
+    };
+
+    (function () {
+        const PROVIDERS = {{ providers_meta | tojson }};
+
+        const form     = document.getElementById('targetForm');
+        const radios   = form.querySelectorAll('input[name=conn_type]');
+        const apiPanel = document.getElementById('apiPanel');
+        const uiPanel  = document.getElementById('uiPanel');
+        const cardApi  = document.getElementById('cardApi');
+        const cardUi   = document.getElementById('cardUi');
+        const providerHidden = document.getElementById('providerHidden');
+        const presetBtns = document.getElementById('presetBtns');
+        const simpleFields = document.getElementById('simpleFields');
+        const advanced = document.getElementById('advanced');
+        const bodyErr  = document.getElementById('bodyErr');
+
+        const apiModel  = document.getElementById('apiModel');
+        const apiEndpoint = document.getElementById('apiEndpoint');
+        const apiKey    = document.getElementById('apiKey');
+        const apiBody   = document.getElementById('apiBody');
+        const apiRespPath = document.getElementById('apiRespPath');
+        const apiHeaders = document.getElementById('apiHeaders');
+        const apiPauseAfterN = document.getElementById('apiPauseAfterN');
+        const apiPauseRestS  = document.getElementById('apiPauseRestS');
+        const apiExtra  = document.getElementById('apiExtra');
+
+        let simpleMode = false;   // true when the active preset's body has a "model" field
+
+        function setDisabled(container, disabled) {
+            container.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = disabled; });
+        }
+        function currentType() { return form.querySelector('input[name=conn_type]:checked').value; }
+        function showBodyErr(msg) {
+            if (!msg) { bodyErr.style.display = 'none'; bodyErr.textContent = ''; return; }
+            bodyErr.style.display = ''; bodyErr.textContent = msg;
+        }
+
+        // Apply a vendor preset: fill the raw request, decide simple vs advanced.
+        function applyPreset(p, doFocus) {
+            const rt = p.request_template || {};
+            providerHidden.value = p.slug;
+            apiEndpoint.value = rt.endpoint || '';
+            apiBody.value     = rt.body || '';
+            apiRespPath.value = rt.response_path || '';
+            apiHeaders.value  = rt.headers || '';
+            apiKey.value      = '';
+            showBodyErr(null);
+            // Mark the active button.
+            presetBtns.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b.dataset.slug === p.slug));
+            detectSimple(rt.body);
+            if (doFocus) (simpleMode ? apiModel : apiEndpoint).focus();
+        }
+
+        // Simple mode when the body carries a top-level "model" string.
+        function detectSimple(body) {
+            simpleMode = false; let m = '';
+            try { const o = JSON.parse(body || '{}'); if (o && typeof o.model === 'string') { simpleMode = true; m = o.model; } } catch (e) {}
+            apiModel.value = m;
+            simpleFields.style.display = simpleMode ? '' : 'none';
+            advanced.open = !simpleMode;   // custom / Azure start expanded
+        }
+
+        // Build the quick-pick buttons (skip in-process providers like HuggingFace).
+        const SHORT = { openai: 'OpenAI', ollama: 'Ollama', http_generic: 'Custom',
+                        anthropic: 'Anthropic', azure_openai: 'Azure' };
+        (PROVIDERS.api || []).filter(p => p.raw !== false).forEach(p => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'chip'; b.dataset.slug = p.slug;
+            b.textContent = SHORT[p.slug] || p.slug;
+            b.title = p.help || '';
+            b.addEventListener('click', () => applyPreset(p, true));
+            presetBtns.appendChild(b);
+        });
+
+        // Keep the raw body's "model" in sync with the simple Model field.
+        apiModel.addEventListener('input', () => {
+            try {
+                const o = JSON.parse(apiBody.value);
+                if (o && typeof o === 'object' && !Array.isArray(o)) {
+                    o.model = apiModel.value;
+                    apiBody.value = JSON.stringify(o, null, 2);
+                }
+            } catch (e) { /* body not valid JSON right now — leave it */ }
+        });
+
+        // Build extra_config from the raw fields. Returns {ok, extra} or {ok:false, error}.
+        function assembleApiExtra() {
+            const lines = [];
+            const body = apiBody.value.trim();
+            if (body) {
+                // An unquoted {history} placeholder (README.md, Configuration and troubleshooting) is not JSON on
+                // its own: check the body with a stand-in string, then put it back.
+                const STAND_IN = '"__history_placeholder__"';
+                let min;
+                try {
+                    min = JSON.stringify(JSON.parse(body.replace(/"\{history\}"|\{history\}/g, STAND_IN)))
+                        .split(STAND_IN).join('{history}');
+                }
+                catch (e) { return { ok: false, error: 'Request body is not valid JSON: ' + e.message }; }
+                lines.push('body_template=' + min);
+            }
+            const rp = apiRespPath.value.trim();
+            if (rp) lines.push('response_path=' + rp);
+            apiHeaders.value.split('\n').forEach(line => {
+                line = line.trim(); if (!line) return;
+                const m = line.match(/^([^:=]+)[:=](.*)$/);
+                if (m) lines.push('header.' + m[1].trim() + '=' + m[2].trim());
+            });
+            // Optional burst pause. Only emitted when both are positive numbers,
+            // so a blank (or a lone value in one field) means "no pause" rather
+            // than a half-configured throttle. The backend clamps anyway.
+            const pn = (apiPauseAfterN.value || '').trim();
+            const pr = (apiPauseRestS.value || '').trim();
+            if (pn && pr && Number(pn) > 0 && Number(pr) > 0) {
+                lines.push('pause_after_n=' + pn);
+                lines.push('pause_rest_s=' + pr);
+            }
+            return { ok: true, extra: lines.join('\n') };
+        }
+
+        // Validate + collect the API config (shared by submit and test). Returns {ok,...} or {error}.
+        function apiConfig() {
+            if (!apiEndpoint.value.trim()) return { error: 'Endpoint URL is required (under Advanced).' };
+            if (simpleMode && !apiModel.value.trim()) return { error: 'Enter a model name.' };
+            const a = assembleApiExtra();
+            if (!a.ok) return { error: a.error };
+            return { provider: providerHidden.value || 'http_generic',
+                     endpoint_url: apiEndpoint.value, api_key: apiKey.value, extra_config: a.extra };
+        }
+
+        function toggle() {
+            const isApi = currentType() === 'api';
+            apiPanel.style.display = isApi ? '' : 'none';
+            uiPanel.style.display  = isApi ? 'none' : '';
+            const dockerNote = document.getElementById('testDockerNote');
+            if (dockerNote) dockerNote.style.display = isApi ? 'none' : '';
+            cardApi.classList.toggle('active', isApi);
+            cardUi.classList.toggle('active', !isApi);
+            setDisabled(apiPanel, !isApi);
+            setDisabled(uiPanel, isApi);
+        }
+
+        radios.forEach(r => r.addEventListener('change', toggle));
+
+        form.addEventListener('submit', function (e) {
+            if (currentType() === 'api') {
+                const cfg = apiConfig();
+                if (cfg.error) { e.preventDefault(); advanced.open = true; showBodyErr(cfg.error); return; }
+                apiExtra.value = cfg.extra_config;
+            } else {
+                providerHidden.value = 'ui_browser';
+                const uiExtra = document.getElementById('uiExtra');
+                const lines = [];
+                uiPanel.querySelectorAll('[name^="extra_config_ui_"]').forEach(el => {
+                    if (el === uiExtra) return;
+                    const key = el.name.replace('extra_config_', '');
+                    if (el.type === 'checkbox') { if (el.checked) lines.push(key + '=' + (el.value || 'true')); }
+                    else if (el.value && el.value.trim()) { lines.push(key + '=' + el.value.trim()); }
+                });
+                uiExtra.disabled = false;
+                uiExtra.value = lines.join('\n');
+            }
+        });
+
+        // ----- Test connection (tests the current form config without saving) -----
+        const testBtn = document.getElementById('testBtn');
+        const testResult = document.getElementById('testResult');
+
+        function collectConfig() {
+            if (currentType() === 'api') {
+                const cfg = apiConfig();
+                if (cfg.error) return { __error: cfg.error };
+                return cfg;
+            }
+            const lines = [];
+            uiPanel.querySelectorAll('[name^="extra_config_ui_"]').forEach(el => {
+                if (el.id === 'uiExtra') return;
+                const key = el.name.replace('extra_config_', '');
+                if (el.type === 'checkbox') { if (el.checked) lines.push(key + '=' + (el.value || 'true')); }
+                else if (el.value && el.value.trim()) { lines.push(key + '=' + el.value.trim()); }
+            });
+            return { provider: 'ui_browser', model_name: 'ui_browser', endpoint_url: '', api_key: '', extra_config: lines.join('\n') };
+        }
+
+        testBtn.addEventListener('click', async () => {
+            const cfg = collectConfig();
+            if (cfg.__error) { if (currentType() === 'api') advanced.open = true; window.renderTargetTest(testResult, { ok: false, error: cfg.__error }); return; }
+            testBtn.disabled = true;
+            window.renderTargetTest(testResult, null, true);
+            const params = new URLSearchParams(cfg);
+            params.set('csrf_token', window.__CSRF);
+            try {
+                const r = await fetch("{{ url_for('main.targets_test_config') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString(),
+                });
+                window.renderTargetTest(testResult, await r.json());
+            } catch (e) {
+                window.renderTargetTest(testResult, { ok: false, error: String(e) });
+            } finally {
+                testBtn.disabled = false;
+            }
+        });
+
+        // ----- Capture selectors (opens a real browser via Playwright) -----
+        const captureBtn = document.getElementById('captureBtn');
+        const captureResult = document.getElementById('captureResult');
+        const storageField = document.getElementById('uiStorageState');
+        const uiField = (key) => uiPanel.querySelector('[name="extra_config_' + key + '"]');
+        // Streamlit preset: the three selectors below were checked on a real
+        // Streamlit 1.64 chat app (assistant replies only, not the user's echo).
+        document.getElementById('streamlitBtn').addEventListener('click', () => {
+            const set = (k, v) => { const el = uiField(k); if (el) el.value = v; };
+            set('ui_input_selector', '[data-testid="stChatInputTextArea"]');
+            set('ui_submit_selector', '[data-testid="stChatInputSubmitButton"]');
+            set('ui_response_selector', '[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stChatMessageContent"]');
+            const url = uiField('ui_url');
+            if (url && !url.value) url.value = {{ page_url_hint | tojson }};
+            document.getElementById('streamlitResult').textContent =
+                'Selectors filled. Check the Page URL, then press Test connection.';
+        });
+
+        captureBtn.addEventListener('click', async () => {
+            const urlEl = uiField('ui_url');
+            const url = urlEl ? urlEl.value.trim() : '';
+            if (!url) {
+                captureResult.innerHTML = '<span class="test-fail">Enter the Page URL below first.</span>';
+                if (urlEl) urlEl.focus();
+                return;
+            }
+
+            captureBtn.disabled = true;
+            captureResult.innerHTML = 'Opening a browser&hellip; click the message box, the send button, '
+                + 'and a reply on the page, then press <strong>Use these</strong>.';
+            const params = new URLSearchParams();
+            params.set('csrf_token', window.__CSRF);
+            params.set('url', url);
+            if (storageField && storageField.value) params.set('storage_state', storageField.value);
+            try {
+                const r = await fetch("{{ url_for('main.targets_capture') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString(),
+                });
+                const data = await r.json();
+                if (data.ok && data.selectors) {
+                    const s = data.selectors;
+                    const set = (k, v) => { const el = uiField(k); if (el && v) el.value = v; };
+                    set('ui_input_selector', s.ui_input_selector);
+                    set('ui_submit_selector', s.ui_submit_selector);
+                    set('ui_response_selector', s.ui_response_selector);
+                    set('ui_pre_actions', s.ui_pre_actions);
+                    const got = ['input', 'submit', 'response']
+                        .filter((k) => s['ui_' + k + '_selector']);
+                    let preNote = '';
+                    if (s.ui_pre_actions) {
+                        try { const n = JSON.parse(s.ui_pre_actions).length;
+                              if (n) preNote = ' + ' + n + ' setup step' + (n === 1 ? '' : 's'); }
+                        catch (e) { /* ignore */ }
+                    }
+                    captureResult.innerHTML = '<span class="test-ok">&#10003; Filled '
+                        + (got.length === 3 ? 'browser settings' + preNote + '. Test connection to check them.' : 'partial settings. Capture again or open Advanced browser settings to correct them.') + '</span>';
+                } else {
+                    captureResult.innerHTML = '<span class="test-fail">'
+                        + window.__esc(data.error || 'Capture failed.') + '</span>';
+                }
+            } catch (e) {
+                captureResult.innerHTML = '<span class="test-fail">' + window.__esc(String(e)) + '</span>';
+            } finally {
+                captureBtn.disabled = false;
+            }
+        });
+
+        // ----- Log in & save session (for auth-gated targets) -----
+        const loginBtn = document.getElementById('loginBtn');
+        const loginResult = document.getElementById('loginResult');
+        loginBtn.addEventListener('click', async () => {
+            const urlEl = uiField('ui_url');
+            const url = urlEl ? urlEl.value.trim() : '';
+            if (!url) {
+                loginResult.innerHTML = '<span class="test-fail">Enter the Page URL below first.</span>';
+                if (urlEl) urlEl.focus();
+                return;
+            }
+            loginBtn.disabled = true;
+            loginResult.innerHTML = 'Opening a browser&hellip; sign in, then press '
+                + '<strong>I&rsquo;m logged in — save session</strong>.';
+            const params = new URLSearchParams();
+            params.set('csrf_token', window.__CSRF);
+            params.set('url', url);
+            if (storageField && storageField.value) params.set('storage_state', storageField.value);
+            try {
+                const r = await fetch("{{ url_for('main.targets_login') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString(),
+                });
+                const data = await r.json();
+                if (data.ok && data.path) {
+                    if (storageField) storageField.value = data.path;
+                    loginResult.innerHTML = '<span class="test-ok">&#10003; Session saved &mdash; '
+                        + 'capture and tests will run signed in.</span>';
+                } else {
+                    loginResult.innerHTML = '<span class="test-fail">'
+                        + window.__esc(data.error || 'Login failed.') + '</span>';
+                }
+            } catch (e) {
+                loginResult.innerHTML = '<span class="test-fail">' + window.__esc(String(e)) + '</span>';
+            } finally {
+                loginBtn.disabled = false;
+            }
+        });
+
+        // Default to the Custom preset (first chip) — opens with the raw request ready to edit.
+        const def = (PROVIDERS.api || []).find(p => p.slug === 'http_generic') || (PROVIDERS.api || [])[0];
+        if (def) applyPreset(def, false); else providerHidden.value = 'http_generic';
+
+        // Refill the form after a refused save (duplicate name, missing
+        // confirmation) or for Duplicate and edit, so nothing has to be typed
+        // or captured again (finding #57). The API key is never sent back.
+        const PREFILL = {{ prefill | tojson }};
+        if (PREFILL) {
+            const setVal = (sel, v) => { const el = form.querySelector(sel); if (el && v != null) el.value = v; };
+            setVal('input[name=name]', PREFILL.name);
+            setVal('textarea[name=architecture]', PREFILL.architecture);
+            setVal('textarea[name=notes]', PREFILL.notes);
+            const x = PREFILL.extra || {};
+            const isUi = PREFILL.conn_type === 'ui';
+            form.querySelector('input[name=conn_type][value="' + (isUi ? 'ui' : 'api') + '"]').checked = true;
+            if (isUi) {
+                Object.keys(x).forEach(k => {
+                    const el = uiField(k);
+                    if (!el) return;
+                    if (el.type === 'checkbox') el.checked = (x[k] === 'true'); else el.value = x[k];
+                });
+            } else {
+                const p = (PROVIDERS.api || []).find(q => q.slug === PREFILL.provider);
+                if (p) applyPreset(p, false);
+                if (PREFILL.endpoint_url) apiEndpoint.value = PREFILL.endpoint_url;
+                if (x.body_template) {
+                    try { apiBody.value = JSON.stringify(JSON.parse(x.body_template), null, 2); }
+                    catch (e) { apiBody.value = x.body_template; }
+                    detectSimple(apiBody.value);
+                }
+                if (x.response_path) apiRespPath.value = x.response_path;
+                const headers = Object.keys(x).filter(k => k.startsWith('header.'))
+                    .map(k => k.slice(7) + ': ' + x[k]);
+                if (headers.length) apiHeaders.value = headers.join('\n');
+                apiPauseAfterN.value = x.pause_after_n || '';
+                apiPauseRestS.value = x.pause_rest_s || '';
+            }
+        }
+        toggle();
+    })();
+    </script>
+</details>
+
+{% if targets %}
+<table class="table">
+    <thead><tr><th>Name</th><th>Type</th><th>Provider</th><th>Model</th><th>Endpoint</th><th></th></tr></thead>
+    <tbody>
+    {% for t in targets %}
+        <tr>
+            <td>
+                <strong>{{ t.name }}</strong>
+                {% if t.architecture %}<div class="muted small"><em>arch:</em> {{ t.architecture }}</div>{% endif %}
+                {% if t.notes %}<div class="muted small">{{ t.notes }}</div>{% endif %}
+            </td>
+            <td>{% if t.provider == 'ui_browser' %}<span class="muted small">UI</span>{% else %}<span class="muted small">API</span>{% endif %}</td>
+            <td><code>{{ t.provider }}</code></td>
+            <td><code>{{ t.model_name }}</code></td>
+            <td><code>{{ t.endpoint_url or '—' }}</code></td>
+            <td>
+                <button type="button" class="btn-link" data-test-url="{{ url_for('main.targets_test_saved', tid=t.id) }}" data-tid="{{ t.id }}">Test</button>
+                <a class="btn-link" href="{{ url_for('main.targets_duplicate', tid=t.id) }}">Duplicate and edit</a>
+                <form method="post" action="{{ url_for('main.targets_delete', tid=t.id) }}" onsubmit="return confirm('Delete?')" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-link" type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        <tr class="test-row"><td colspan="6"><div id="testout-{{ t.id }}" class="test-out"></div></td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">No targets yet.</p>
+{% endif %}
+
+<script>
+(function () {
+    document.querySelectorAll('button[data-test-url]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const out = document.getElementById('testout-' + btn.dataset.tid);
+            btn.disabled = true;
+            window.renderTargetTest(out, null, true);
+            const params = new URLSearchParams();
+            params.set('csrf_token', window.__CSRF);
+            try {
+                const r = await fetch(btn.dataset.testUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString(),
+                });
+                window.renderTargetTest(out, await r.json());
+            } catch (e) {
+                window.renderTargetTest(out, { ok: false, error: String(e) });
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

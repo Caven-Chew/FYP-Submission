@@ -1,0 +1,9 @@
+services:
+  practice-chatbots:
+    build: .
+    ports:
+      - "127.0.0.1:${BREWBOT_PORT:-5056}:${BREWBOT_PORT:-5056}"
+    env_file: .env
+    environment:
+      BREWBOT_HOST: 0.0.0.0
+      BREWBOT_PORT: ${BREWBOT_PORT:-5056}

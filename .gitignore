@@ -1,0 +1,19 @@
+# Local configuration, environments and generated storage
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+instance/
+node_modules/
+.DS_Store
+*.db
+*.sqlite
+*.sqlite3
+*.zip
+*.gz
+*.har
+*.pem
+*.key

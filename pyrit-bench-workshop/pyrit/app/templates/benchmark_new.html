@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>New benchmark</h1>
+<form method="post" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Name <input type="text" name="name" placeholder="e.g. GPT-4o baseline"></label>
+    <label>Target
+        <select name="target_id" required>
+            {% for t in targets %}<option value="{{ t.id }}">{{ t.name }} — {{ t.provider }}/{{ t.model_name }}</option>{% endfor %}
+        </select>
+    </label>
+
+    <fieldset>
+        <legend>Workshop AI setup</legend>
+        <p class="muted small">
+            The facilitator has already configured the models. PyRIT uses one prompt
+            generator to prepare supported rewrites, and the configured HPC LLM judge
+            scores each target response. Participants do not need to select a provider or enter a key.
+        </p>
+        <div class="llm-role">
+            <strong>PyRIT prompt generator</strong>
+            <span class="muted small">{{ env_llm["ATTACKER"] }}</span>
+        </div>
+        <div class="llm-role">
+            <strong>HPC LLM judge</strong>
+            <span class="muted small">{{ env_llm["JUDGE"] }}</span>
+        </div>
+        {% if env_llm["ATTACKER"] == "not configured" or env_llm["JUDGE"] == "not configured" %}
+        <p class="flash flash--warning small">
+            Facilitator setup is not loaded. Add the private workshop <code>.env</code>
+            beside the application and restart it before running a benchmark.
+        </p>
+        {% endif %}
+    </fieldset>
+
+    <fieldset id="preset-fieldset">
+        <legend>Preset <small class="muted">— optional starting point</small></legend>
+        <p class="muted small">
+            A preset ticks a set of attacks and sets the per-run limits below. It is a
+            repeatable starting point for the lab. Additional attacks require the
+            facilitator password. Nothing is written to <code>.env</code>: the limits
+            are stored on this benchmark, so the next run is unaffected.
+        </p>
+        {% for key, ps in presets.items() %}
+        <div class="llm-role">
+            <strong>{{ ps.label }}</strong>
+            <span class="muted small">{{ ps.summary }}</span>
+            <button type="button" class="seg__btn seg__btn--on"
+                    data-preset="{{ key }}"
+                    data-preset-slugs="{{ ps.attack_slugs | join(',') }}"
+                    data-preset-cap="{{ ps.prompts_per_attack }}"
+                    data-preset-exclude="{{ ps.exclude_objective_categories | join(',') }}">
+                Apply {{ ps.label }} preset
+            </button>
+            <span class="muted small" id="preset-applied-{{ key }}" hidden>Applied.</span>
+        </div>
+        {% endfor %}
+
+        <label>Prompts per attack <small class="muted">(workshop default: {{ presets["workshop"].prompts_per_attack }})</small>
+            <input type="number" name="prompts_per_attack" min="1" step="1"
+                   value="{{ presets["workshop"].prompts_per_attack }}">
+        </label>
+        <label>Withhold objective categories <small class="muted">(optional; comma-separated, e.g. <code>Self-Harm, Sexual</code>)</small>
+            <input type="text" name="exclude_objective_categories"
+                   placeholder="blank = run every category">
+            <small class="muted small">
+                Applies to the structured objectives the dynamic attacks use. Static
+                dataset prompts carry no category labels and cannot be filtered this way.
+            </small>
+        </label>
+    </fieldset>
+
+    <fieldset id="attacks-fieldset">
+        <legend>Attacks</legend>
+        <p class="attacks-intro muted small">Attacks are grouped by <strong>potency tier</strong> — how hard each pushes on a safety-hardened model, weakest first.</p>
+        <div class="llm-role">
+            {% if extra_attacks_unlocked %}
+            <strong>Additional attacks unlocked</strong>
+            <span class="muted small">The complete attack catalog is available for this browser session.</span>
+            <button type="submit" class="seg__btn seg__btn--off"
+                    name="form_action" value="lock_attacks">Lock additional attacks</button>
+            {% else %}
+            <strong>Additional attacks locked</strong>
+            <span class="muted small">
+                The four Workshop attacks are ready. A facilitator password is
+                required before adding attacks outside the Workshop preset.
+            </span>
+            <label>Facilitator password
+                <input type="password" name="attack_unlock_password"
+                       autocomplete="off" placeholder="Enter password to unlock">
+            </label>
+            <button type="submit" class="seg__btn seg__btn--on"
+                    name="form_action" value="unlock_attacks">Unlock additional attacks</button>
+            {% endif %}
+        </div>
+        <div class="attacks-toolbar">
+            <span class="attacks-count"><strong id="attacks-count">0</strong> of {{ total_attacks }} selected</span>
+            <div class="seg" role="group" aria-label="Select or clear all attacks">
+                <button type="button" class="seg__btn seg__btn--on" data-select-all>Select all</button>
+                <button type="button" class="seg__btn seg__btn--off" data-select-none>Clear all</button>
+            </div>
+        </div>
+
+        {% for tier, meta, attacks in tiers %}
+        {% set has_dynamic = attacks | selectattr('kind', 'equalto', 'dynamic') | list | length > 0 %}
+        <section class="tier" data-tier="{{ tier }}">
+            <div class="tier__head">
+                <span class="tier__badge tier-badge--{{ tier }}">{{ meta.slug }}</span>
+                <span class="tier__label">{{ meta.label }}</span>
+                <span class="tier__count">{{ attacks | length }}</span>
+                <div class="seg seg--sm" role="group" aria-label="Select or clear this group">
+                    <button type="button" class="seg__btn seg__btn--on" data-tier-all="{{ tier }}">Select group</button>
+                    <button type="button" class="seg__btn seg__btn--off" data-tier-none="{{ tier }}">Clear group</button>
+                </div>
+            </div>
+            <p class="tier__desc muted small">{{ meta.desc }}</p>
+            {% if has_dynamic %}
+            <p class="tier__desc muted small">{{ objective_count }} structured objectives; capped at {{ max_prompts }} per attack (sampled across categories). Raise MAX_PROMPTS_PER_ATTACK in .env to run more.</p>
+            {% endif %}
+            {% for a in attacks %}
+            {% set is_workshop_attack = a.slug in workshop_attack_slugs %}
+            <label class="check">
+                <input type="checkbox" name="attack_slugs" value="{{ a.slug }}"
+                       {% if is_workshop_attack %}checked{% endif %}
+                       {% if not is_workshop_attack and not extra_attacks_unlocked %}disabled{% endif %}>
+                <span>
+                    <strong>{{ a.name }}</strong>
+                    {% if not is_workshop_attack and not extra_attacks_unlocked %}
+                    <small class="muted">[locked]</small>
+                    {% endif %}
+                    {% if a.get('converter') %} <small>(converter: {{ a['converter'] }})</small>{% endif %}
+                    {% if a.get('taxonomy_category') %} <small class="muted">[{{ a['taxonomy_category'] }}]</small>{% endif %}
+                    {% if a.get('attack_strategies') %}<br><small class="muted">strategies: {{ a['attack_strategies']|join(', ') }}</small>{% endif %}
+                </span>
+            </label>
+            {% endfor %}
+        </section>
+        {% endfor %}
+    </fieldset>
+
+    <button type="submit" class="btn">Run benchmark</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var fs = document.getElementById('attacks-fieldset');
+    if (!fs) return;
+    var boxes = function () { return fs.querySelectorAll('input[name="attack_slugs"]'); };
+    var countEl = document.getElementById('attacks-count');
+
+    function refresh() {
+        var all = boxes(), n = 0;
+        all.forEach(function (b) { if (b.checked) n++; });
+        if (countEl) countEl.textContent = n;
+    }
+    function setAll(list, val) {
+        list.forEach(function (b) { if (!b.disabled) b.checked = val; });
+        refresh();
+    }
+    function tierBoxes(tier) {
+        var sec = fs.querySelector('.tier[data-tier="' + tier + '"]');
+        return sec ? sec.querySelectorAll('input[name="attack_slugs"]') : [];
+    }
+
+    fs.addEventListener('click', function (e) {
+        var t = e.target;
+        if (t.matches('[data-select-all]')) { setAll(boxes(), true); }
+        else if (t.matches('[data-select-none]')) { setAll(boxes(), false); }
+        else if (t.hasAttribute('data-tier-all')) { setAll(tierBoxes(t.getAttribute('data-tier-all')), true); }
+        else if (t.hasAttribute('data-tier-none')) { setAll(tierBoxes(t.getAttribute('data-tier-none')), false); }
+    });
+    fs.addEventListener('change', function (e) {
+        if (e.target.matches('input[name="attack_slugs"]')) refresh();
+    });
+
+    // Presets: clear every box, tick exactly the preset's slugs, and fill the two
+    // per-run limit fields. Deliberately a full reset rather than an additive
+    // tick — "apply the workshop preset" has to mean the same thing whatever was
+    // ticked beforehand, or the lab is not reproducible across facilitators.
+    var presetBar = document.getElementById('preset-fieldset');
+    if (presetBar) {
+        presetBar.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-preset]');
+            if (!btn) return;
+            var want = (btn.getAttribute('data-preset-slugs') || '').split(',').filter(Boolean);
+            setAll(boxes(), false);
+            var missing = [];
+            want.forEach(function (slug) {
+                var box = fs.querySelector('input[name="attack_slugs"][value="' + slug + '"]');
+                if (box) { box.checked = true; } else { missing.push(slug); }
+            });
+            var cap = btn.getAttribute('data-preset-cap');
+            var capField = document.querySelector('input[name="prompts_per_attack"]');
+            if (capField && cap) capField.value = cap;
+            var excl = btn.getAttribute('data-preset-exclude');
+            var exclField = document.querySelector('input[name="exclude_objective_categories"]');
+            if (exclField) exclField.value = (excl || '').split(',').filter(Boolean).join(', ');
+            refresh();
+            var note = document.getElementById('preset-applied-' + btn.getAttribute('data-preset'));
+            if (note) {
+                // A preset naming an attack the catalog no longer has would
+                // otherwise apply silently and run a smaller lab than intended.
+                note.textContent = missing.length
+                    ? 'Applied, but these attacks are no longer in the catalog: ' + missing.join(', ')
+                    : 'Applied.';
+                note.hidden = false;
+            }
+            fs.scrollIntoView({behavior: 'smooth', block: 'start'});
+        });
+    }
+
+    refresh();
+})();
+</script>
+{% endblock %}

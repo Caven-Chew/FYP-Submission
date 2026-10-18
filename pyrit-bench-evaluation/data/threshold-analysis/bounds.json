@@ -1,0 +1,1924 @@
+{
+  "tool": "historical_threshold_analysis.py",
+  "tool_version": "1.0.0",
+  "tool_sha256": "3c5836da52405b99f3159b385d59fac263f3614c0855f307a56e599cd5391f54",
+  "command": "bounds",
+  "generated_utc": "2026-09-19T02:33:52Z",
+  "python": "3.12.14",
+  "read_only": "sqlite3 URI mode=ro plus PRAGMA query_only=1; SELECT/PRAGMA only",
+  "metadata_only": "free-text columns are rejected before execution; response is used only in an emptiness predicate",
+  "inputs": {
+    "table_9": [
+      {
+        "condition": "Forbidden Questions",
+        "attack_slug": "forbidden_questions",
+        "n": 177,
+        "count_at_least_3": 6,
+        "mean_severity": "1.14"
+      },
+      {
+        "condition": "XSTest subset (benign)",
+        "attack_slug": "xstest",
+        "n": 202,
+        "count_at_least_3": 22,
+        "mean_severity": "1.28"
+      },
+      {
+        "condition": "AdvBench",
+        "attack_slug": "advbench",
+        "n": 225,
+        "count_at_least_3": 19,
+        "mean_severity": "1.34"
+      },
+      {
+        "condition": "HarmBench plain",
+        "attack_slug": "harmbench",
+        "n": 275,
+        "count_at_least_3": 25,
+        "mean_severity": "1.36"
+      },
+      {
+        "condition": "HarmBench + leetspeak",
+        "attack_slug": "harmbench_leetspeak",
+        "n": 153,
+        "count_at_least_3": 38,
+        "mean_severity": "1.94"
+      },
+      {
+        "condition": "HarmBench + Base64",
+        "attack_slug": "harmbench_base64",
+        "n": 138,
+        "count_at_least_3": 43,
+        "mean_severity": "2.23"
+      },
+      {
+        "condition": "HarmBench + ROT13",
+        "attack_slug": "harmbench_rot13",
+        "n": 153,
+        "count_at_least_3": 91,
+        "mean_severity": "3.37"
+      },
+      {
+        "condition": "HarmBench + codechameleon",
+        "attack_slug": "harmbench_codechameleon",
+        "n": 20,
+        "count_at_least_3": 18,
+        "mean_severity": "3.65"
+      }
+    ],
+    "table_10_pooled_counts": {
+      "1": 1182,
+      "2": 23,
+      "3": 37,
+      "4": 18,
+      "5": 211
+    },
+    "pooled_total": 1471,
+    "mean_provenance": "Table 9 of reports/interim/Interim_Report_PyRIT-Bench_v5.docx, read from word/document.xml with the standard library; every mean and its condition matched the values hard-coded in reports/assets/report_images/generate_figures.py (fig7)."
+  },
+  "assumptions": [
+    "Every severity score is an integer in 1-5 and each condition's counts sum to its reported n.",
+    "The published mean is the true mean correctly rounded to 2 decimal places, so the severity sum lies in [n(m - 0.005), n(m + 0.005)].",
+    "The reported count at severity >= 3 is exact.",
+    "WITH POOLED CAPS ONLY: the Table 9 rows are a subset of the 1,471 pooled population, so no single condition can hold more responses at severity s than the whole population holds at s (Table 10). This is applied per condition; a joint constraint across all eight conditions at once would be tighter and is not attempted here.",
+    "No assumption is made about which target produced which response."
+  ],
+  "with_pooled_caps": {
+    "Forbidden Questions": {
+      "n": 177,
+      "count_at_least_3": 6,
+      "mean": "1.14",
+      "sum_range": [
+        201,
+        202
+      ],
+      "feasible": true,
+      "solutions": 56,
+      "t2": {
+        "min": 6,
+        "max": 19
+      },
+      "t4": {
+        "min": 0,
+        "max": 6
+      },
+      "t5": {
+        "min": 0,
+        "max": 6
+      },
+      "condition": "Forbidden Questions",
+      "attack_slug": "forbidden_questions",
+      "t3": {
+        "min": 6,
+        "max": 6
+      }
+    },
+    "XSTest subset (benign)": {
+      "n": 202,
+      "count_at_least_3": 22,
+      "mean": "1.28",
+      "sum_range": [
+        258,
+        259
+      ],
+      "feasible": true,
+      "solutions": 105,
+      "t2": {
+        "min": 22,
+        "max": 35
+      },
+      "t4": {
+        "min": 0,
+        "max": 13
+      },
+      "t5": {
+        "min": 0,
+        "max": 6
+      },
+      "condition": "XSTest subset (benign)",
+      "attack_slug": "xstest",
+      "t3": {
+        "min": 22,
+        "max": 22
+      }
+    },
+    "AdvBench": {
+      "n": 225,
+      "count_at_least_3": 19,
+      "mean": "1.34",
+      "sum_range": [
+        301,
+        302
+      ],
+      "feasible": true,
+      "solutions": 282,
+      "t2": {
+        "min": 19,
+        "max": 42
+      },
+      "t4": {
+        "min": 8,
+        "max": 19
+      },
+      "t5": {
+        "min": 0,
+        "max": 19
+      },
+      "condition": "AdvBench",
+      "attack_slug": "advbench",
+      "t3": {
+        "min": 19,
+        "max": 19
+      }
+    },
+    "HarmBench plain": {
+      "n": 275,
+      "count_at_least_3": 25,
+      "mean": "1.36",
+      "sum_range": [
+        373,
+        375
+      ],
+      "feasible": true,
+      "solutions": 467,
+      "t2": {
+        "min": 25,
+        "max": 48
+      },
+      "t4": {
+        "min": 13,
+        "max": 25
+      },
+      "t5": {
+        "min": 4,
+        "max": 25
+      },
+      "condition": "HarmBench plain",
+      "attack_slug": "harmbench",
+      "t3": {
+        "min": 25,
+        "max": 25
+      }
+    },
+    "HarmBench + leetspeak": {
+      "n": 153,
+      "count_at_least_3": 38,
+      "mean": "1.94",
+      "sum_range": [
+        297,
+        297
+      ],
+      "feasible": true,
+      "solutions": 203,
+      "t2": {
+        "min": 38,
+        "max": 61
+      },
+      "t4": {
+        "min": 23,
+        "max": 38
+      },
+      "t5": {
+        "min": 14,
+        "max": 34
+      },
+      "condition": "HarmBench + leetspeak",
+      "attack_slug": "harmbench_leetspeak",
+      "t3": {
+        "min": 38,
+        "max": 38
+      }
+    },
+    "HarmBench + Base64": {
+      "n": 138,
+      "count_at_least_3": 43,
+      "mean": "2.23",
+      "sum_range": [
+        308,
+        308
+      ],
+      "feasible": true,
+      "solutions": 164,
+      "t2": {
+        "min": 43,
+        "max": 66
+      },
+      "t4": {
+        "min": 31,
+        "max": 43
+      },
+      "t5": {
+        "min": 22,
+        "max": 42
+      },
+      "condition": "HarmBench + Base64",
+      "attack_slug": "harmbench_base64",
+      "t3": {
+        "min": 43,
+        "max": 43
+      }
+    },
+    "HarmBench + ROT13": {
+      "n": 153,
+      "count_at_least_3": 91,
+      "mean": "3.37",
+      "sum_range": [
+        515,
+        516
+      ],
+      "feasible": true,
+      "solutions": 320,
+      "t2": {
+        "min": 91,
+        "max": 114
+      },
+      "t4": {
+        "min": 79,
+        "max": 91
+      },
+      "t5": {
+        "min": 70,
+        "max": 90
+      },
+      "condition": "HarmBench + ROT13",
+      "attack_slug": "harmbench_rot13",
+      "t3": {
+        "min": 91,
+        "max": 91
+      }
+    },
+    "HarmBench + codechameleon": {
+      "n": 20,
+      "count_at_least_3": 18,
+      "mean": "3.65",
+      "sum_range": [
+        73,
+        73
+      ],
+      "feasible": true,
+      "solutions": 26,
+      "t2": {
+        "min": 18,
+        "max": 20
+      },
+      "t4": {
+        "min": 8,
+        "max": 17
+      },
+      "t5": {
+        "min": 0,
+        "max": 8
+      },
+      "condition": "HarmBench + codechameleon",
+      "attack_slug": "harmbench_codechameleon",
+      "t3": {
+        "min": 18,
+        "max": 18
+      }
+    }
+  },
+  "without_pooled_caps": {
+    "Forbidden Questions": {
+      "n": 177,
+      "count_at_least_3": 6,
+      "mean": "1.14",
+      "sum_range": [
+        201,
+        202
+      ],
+      "feasible": true,
+      "solutions": 56,
+      "t2": {
+        "min": 6,
+        "max": 19
+      },
+      "t4": {
+        "min": 0,
+        "max": 6
+      },
+      "t5": {
+        "min": 0,
+        "max": 6
+      },
+      "condition": "Forbidden Questions",
+      "attack_slug": "forbidden_questions",
+      "t3": {
+        "min": 6,
+        "max": 6
+      }
+    },
+    "XSTest subset (benign)": {
+      "n": 202,
+      "count_at_least_3": 22,
+      "mean": "1.28",
+      "sum_range": [
+        258,
+        259
+      ],
+      "feasible": true,
+      "solutions": 105,
+      "t2": {
+        "min": 22,
+        "max": 35
+      },
+      "t4": {
+        "min": 0,
+        "max": 13
+      },
+      "t5": {
+        "min": 0,
+        "max": 6
+      },
+      "condition": "XSTest subset (benign)",
+      "attack_slug": "xstest",
+      "t3": {
+        "min": 22,
+        "max": 22
+      }
+    },
+    "AdvBench": {
+      "n": 225,
+      "count_at_least_3": 19,
+      "mean": "1.34",
+      "sum_range": [
+        301,
+        302
+      ],
+      "feasible": true,
+      "solutions": 420,
+      "t2": {
+        "min": 19,
+        "max": 58
+      },
+      "t4": {
+        "min": 0,
+        "max": 19
+      },
+      "t5": {
+        "min": 0,
+        "max": 19
+      },
+      "condition": "AdvBench",
+      "attack_slug": "advbench",
+      "t3": {
+        "min": 19,
+        "max": 19
+      }
+    },
+    "HarmBench plain": {
+      "n": 275,
+      "count_at_least_3": 25,
+      "mean": "1.36",
+      "sum_range": [
+        373,
+        375
+      ],
+      "feasible": true,
+      "solutions": 1050,
+      "t2": {
+        "min": 25,
+        "max": 75
+      },
+      "t4": {
+        "min": 0,
+        "max": 25
+      },
+      "t5": {
+        "min": 0,
+        "max": 25
+      },
+      "condition": "HarmBench plain",
+      "attack_slug": "harmbench",
+      "t3": {
+        "min": 25,
+        "max": 25
+      }
+    },
+    "HarmBench + leetspeak": {
+      "n": 153,
+      "count_at_least_3": 38,
+      "mean": "1.94",
+      "sum_range": [
+        297,
+        297
+      ],
+      "feasible": true,
+      "solutions": 760,
+      "t2": {
+        "min": 38,
+        "max": 106
+      },
+      "t4": {
+        "min": 0,
+        "max": 38
+      },
+      "t5": {
+        "min": 0,
+        "max": 34
+      },
+      "condition": "HarmBench + leetspeak",
+      "attack_slug": "harmbench_leetspeak",
+      "t3": {
+        "min": 38,
+        "max": 38
+      }
+    },
+    "HarmBench + Base64": {
+      "n": 138,
+      "count_at_least_3": 43,
+      "mean": "2.23",
+      "sum_range": [
+        308,
+        308
+      ],
+      "feasible": true,
+      "solutions": 988,
+      "t2": {
+        "min": 43,
+        "max": 127
+      },
+      "t4": {
+        "min": 0,
+        "max": 43
+      },
+      "t5": {
+        "min": 0,
+        "max": 42
+      },
+      "condition": "HarmBench + Base64",
+      "attack_slug": "harmbench_base64",
+      "t3": {
+        "min": 43,
+        "max": 43
+      }
+    },
+    "HarmBench + ROT13": {
+      "n": 153,
+      "count_at_least_3": 91,
+      "mean": "3.37",
+      "sum_range": [
+        515,
+        516
+      ],
+      "feasible": true,
+      "solutions": 2142,
+      "t2": {
+        "min": 91,
+        "max": 153
+      },
+      "t4": {
+        "min": 59,
+        "max": 91
+      },
+      "t5": {
+        "min": 27,
+        "max": 90
+      },
+      "condition": "HarmBench + ROT13",
+      "attack_slug": "harmbench_rot13",
+      "t3": {
+        "min": 91,
+        "max": 91
+      }
+    },
+    "HarmBench + codechameleon": {
+      "n": 20,
+      "count_at_least_3": 18,
+      "mean": "3.65",
+      "sum_range": [
+        73,
+        73
+      ],
+      "feasible": true,
+      "solutions": 26,
+      "t2": {
+        "min": 18,
+        "max": 20
+      },
+      "t4": {
+        "min": 8,
+        "max": 17
+      },
+      "t5": {
+        "min": 0,
+        "max": 8
+      },
+      "condition": "HarmBench + codechameleon",
+      "attack_slug": "harmbench_codechameleon",
+      "t3": {
+        "min": 18,
+        "max": 18
+      }
+    }
+  },
+  "with_pooled_caps_orderings": {
+    "2": {
+      "threshold": 2,
+      "determined": [
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "XSTest subset (benign)",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + Base64"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench + Base64"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench + ROT13"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + leetspeak"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench + leetspeak"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "XSTest subset (benign)"
+        }
+      ],
+      "undetermined": [
+        {
+          "a": "AdvBench",
+          "b": "Forbidden Questions",
+          "a_range_pct": [
+            8.44,
+            18.67
+          ],
+          "b_range_pct": [
+            3.39,
+            10.73
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            8.44,
+            18.67
+          ],
+          "b_range_pct": [
+            9.09,
+            17.45
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            8.44,
+            18.67
+          ],
+          "b_range_pct": [
+            10.89,
+            17.33
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            3.39,
+            10.73
+          ],
+          "b_range_pct": [
+            9.09,
+            17.45
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            31.16,
+            47.83
+          ],
+          "b_range_pct": [
+            24.84,
+            39.87
+          ]
+        },
+        {
+          "a": "HarmBench plain",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            9.09,
+            17.45
+          ],
+          "b_range_pct": [
+            10.89,
+            17.33
+          ]
+        }
+      ],
+      "pairs": 28
+    },
+    "4": {
+      "threshold": 4,
+      "determined": [
+        {
+          "higher": "AdvBench",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench plain",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + Base64"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench + Base64"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + leetspeak"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench + leetspeak"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "XSTest subset (benign)"
+        }
+      ],
+      "undetermined": [
+        {
+          "a": "AdvBench",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            3.56,
+            8.44
+          ],
+          "b_range_pct": [
+            4.73,
+            9.09
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            3.56,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            6.44
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            6.44
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            22.46,
+            31.16
+          ],
+          "b_range_pct": [
+            15.03,
+            24.84
+          ]
+        },
+        {
+          "a": "HarmBench + ROT13",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            51.63,
+            59.48
+          ],
+          "b_range_pct": [
+            40.0,
+            85.0
+          ]
+        },
+        {
+          "a": "HarmBench plain",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            4.73,
+            9.09
+          ],
+          "b_range_pct": [
+            0.0,
+            6.44
+          ]
+        }
+      ],
+      "pairs": 28
+    },
+    "5": {
+      "threshold": 5,
+      "determined": [
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + Base64"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + codechameleon"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + leetspeak"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "XSTest subset (benign)"
+        }
+      ],
+      "undetermined": [
+        {
+          "a": "AdvBench",
+          "b": "Forbidden Questions",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            3.39
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            40.0
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            1.45,
+            9.09
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            40.0
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            1.45,
+            9.09
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            15.94,
+            30.43
+          ],
+          "b_range_pct": [
+            0.0,
+            40.0
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            15.94,
+            30.43
+          ],
+          "b_range_pct": [
+            9.15,
+            22.22
+          ]
+        },
+        {
+          "a": "HarmBench + codechameleon",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            0.0,
+            40.0
+          ],
+          "b_range_pct": [
+            9.15,
+            22.22
+          ]
+        },
+        {
+          "a": "HarmBench + codechameleon",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            40.0
+          ],
+          "b_range_pct": [
+            1.45,
+            9.09
+          ]
+        },
+        {
+          "a": "HarmBench + codechameleon",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            40.0
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        },
+        {
+          "a": "HarmBench plain",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            1.45,
+            9.09
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        }
+      ],
+      "pairs": 28
+    }
+  },
+  "without_pooled_caps_orderings": {
+    "2": {
+      "threshold": 2,
+      "determined": [
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "XSTest subset (benign)",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + Base64",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench + leetspeak"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + leetspeak",
+          "lower": "XSTest subset (benign)"
+        }
+      ],
+      "undetermined": [
+        {
+          "a": "AdvBench",
+          "b": "Forbidden Questions",
+          "a_range_pct": [
+            8.44,
+            25.78
+          ],
+          "b_range_pct": [
+            3.39,
+            10.73
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            8.44,
+            25.78
+          ],
+          "b_range_pct": [
+            24.84,
+            69.28
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            8.44,
+            25.78
+          ],
+          "b_range_pct": [
+            9.09,
+            27.27
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            8.44,
+            25.78
+          ],
+          "b_range_pct": [
+            10.89,
+            17.33
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            3.39,
+            10.73
+          ],
+          "b_range_pct": [
+            9.09,
+            27.27
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + ROT13",
+          "a_range_pct": [
+            31.16,
+            92.03
+          ],
+          "b_range_pct": [
+            59.48,
+            100.0
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            31.16,
+            92.03
+          ],
+          "b_range_pct": [
+            90.0,
+            100.0
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            31.16,
+            92.03
+          ],
+          "b_range_pct": [
+            24.84,
+            69.28
+          ]
+        },
+        {
+          "a": "HarmBench + ROT13",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            59.48,
+            100.0
+          ],
+          "b_range_pct": [
+            90.0,
+            100.0
+          ]
+        },
+        {
+          "a": "HarmBench + ROT13",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            59.48,
+            100.0
+          ],
+          "b_range_pct": [
+            24.84,
+            69.28
+          ]
+        },
+        {
+          "a": "HarmBench + leetspeak",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            24.84,
+            69.28
+          ],
+          "b_range_pct": [
+            9.09,
+            27.27
+          ]
+        },
+        {
+          "a": "HarmBench plain",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            9.09,
+            27.27
+          ],
+          "b_range_pct": [
+            10.89,
+            17.33
+          ]
+        }
+      ],
+      "pairs": 28
+    },
+    "4": {
+      "threshold": 4,
+      "determined": [
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + Base64"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench + Base64"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench + leetspeak"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "XSTest subset (benign)"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench + leetspeak"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + codechameleon",
+          "lower": "XSTest subset (benign)"
+        }
+      ],
+      "undetermined": [
+        {
+          "a": "AdvBench",
+          "b": "Forbidden Questions",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            3.39
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench + Base64",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            31.16
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            24.84
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            6.44
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench + Base64",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            31.16
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            24.84
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            6.44
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            0.0,
+            31.16
+          ],
+          "b_range_pct": [
+            0.0,
+            24.84
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            31.16
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            31.16
+          ],
+          "b_range_pct": [
+            0.0,
+            6.44
+          ]
+        },
+        {
+          "a": "HarmBench + ROT13",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            38.56,
+            59.48
+          ],
+          "b_range_pct": [
+            40.0,
+            85.0
+          ]
+        },
+        {
+          "a": "HarmBench + leetspeak",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            24.84
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "HarmBench + leetspeak",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            24.84
+          ],
+          "b_range_pct": [
+            0.0,
+            6.44
+          ]
+        },
+        {
+          "a": "HarmBench plain",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            9.09
+          ],
+          "b_range_pct": [
+            0.0,
+            6.44
+          ]
+        }
+      ],
+      "pairs": 28
+    },
+    "5": {
+      "threshold": 5,
+      "determined": [
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "AdvBench"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "Forbidden Questions"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "HarmBench plain"
+        },
+        {
+          "higher": "HarmBench + ROT13",
+          "lower": "XSTest subset (benign)"
+        }
+      ],
+      "undetermined": [
+        {
+          "a": "AdvBench",
+          "b": "Forbidden Questions",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            3.39
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench + Base64",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            30.43
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            40.0
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            22.22
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "AdvBench",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            8.44
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench + Base64",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            30.43
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            40.0
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            22.22
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "Forbidden Questions",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            3.39
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + ROT13",
+          "a_range_pct": [
+            0.0,
+            30.43
+          ],
+          "b_range_pct": [
+            17.65,
+            58.82
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            0.0,
+            30.43
+          ],
+          "b_range_pct": [
+            0.0,
+            40.0
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            0.0,
+            30.43
+          ],
+          "b_range_pct": [
+            0.0,
+            22.22
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            30.43
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "HarmBench + Base64",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            30.43
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        },
+        {
+          "a": "HarmBench + ROT13",
+          "b": "HarmBench + codechameleon",
+          "a_range_pct": [
+            17.65,
+            58.82
+          ],
+          "b_range_pct": [
+            0.0,
+            40.0
+          ]
+        },
+        {
+          "a": "HarmBench + ROT13",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            17.65,
+            58.82
+          ],
+          "b_range_pct": [
+            0.0,
+            22.22
+          ]
+        },
+        {
+          "a": "HarmBench + codechameleon",
+          "b": "HarmBench + leetspeak",
+          "a_range_pct": [
+            0.0,
+            40.0
+          ],
+          "b_range_pct": [
+            0.0,
+            22.22
+          ]
+        },
+        {
+          "a": "HarmBench + codechameleon",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            40.0
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "HarmBench + codechameleon",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            40.0
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        },
+        {
+          "a": "HarmBench + leetspeak",
+          "b": "HarmBench plain",
+          "a_range_pct": [
+            0.0,
+            22.22
+          ],
+          "b_range_pct": [
+            0.0,
+            9.09
+          ]
+        },
+        {
+          "a": "HarmBench + leetspeak",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            22.22
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        },
+        {
+          "a": "HarmBench plain",
+          "b": "XSTest subset (benign)",
+          "a_range_pct": [
+            0.0,
+            9.09
+          ],
+          "b_range_pct": [
+            0.0,
+            2.97
+          ]
+        }
+      ],
+      "pairs": 28
+    }
+  },
+  "independent_hand_calculation_checks": [
+    {
+      "name": "codechameleon at threshold 5 is at most 8 of 20",
+      "expected": 8,
+      "observed": 8,
+      "variant": "with pooled caps",
+      "agrees": true
+    },
+    {
+      "name": "codechameleon at threshold 5 is at most 8 of 20 (no caps)",
+      "expected": 8,
+      "observed": 8,
+      "variant": "without pooled caps",
+      "agrees": true
+    },
+    {
+      "name": "ROT13 at threshold 5 is at least 70 of 153 with the pooled caps",
+      "expected": 70,
+      "observed": 70,
+      "variant": "with pooled caps",
+      "agrees": true
+    },
+    {
+      "name": "ROT13 at threshold 5 is at least 27 of 153 without the pooled caps",
+      "expected": 27,
+      "observed": 27,
+      "variant": "without pooled caps",
+      "agrees": true
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{# Task 8: saved multi-turn trajectory for this conversation card (engine/trajectory.py).
+   Included inside the card, where `block`, `turns` and `b` are in scope. #}
+{% set trajs = trajectories_for(b.id, turns[0].attack_slug, block.objective_id) if turns else [] %}
+{% if trajs %}
+{% set current = trajs | rejectattr('status', 'equalto', 'archived') | list %}
+<details class="small" data-conversation-recovery="{{ block.objective_id }}">
+    <summary>Saved trajectory: {% for t in current %}{{ t.status }}{% if t.resumed_from_turn %} (resumed from turn {{ t.resumed_from_turn }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{% if trajs|length > current|length %} · {{ trajs|length - current|length }} earlier segment(s) archived{% endif %}</summary>
+    <p class="muted">Each target send was saved as it happened. "Turns saved" counts complete prompt–reply pairs in the latest conversation; a resumed segment replays them to PyRIT instead of sending them again.</p>
+    <table class="table">
+        <thead><tr><th>Trajectory</th><th>Attacker / attempt</th><th>Status</th><th>Turns saved</th><th>Resumed from</th><th>Updated (UTC)</th></tr></thead>
+        <tbody>{% for t in trajs %}
+        <tr>
+            <td>#{{ t.id }}{% if t.previous_trajectory_id %}<div class="muted">after #{{ t.previous_trajectory_id }}</div>{% endif %}</td>
+            <td>{{ t.converter_used or 'configured attacker' }} · attempt {{ t.attempt + 1 }}</td>
+            <td>{{ t.status }}{% if t.note %}<div class="muted">{{ t.note }}</div>{% endif %}</td>
+            <td>{{ t.turns_recorded }}{% if t.max_turns %} of {{ t.max_turns }}{% endif %} · {{ t.turns|length }} send(s) in this segment</td>
+            <td>{{ 'turn %d' % t.resumed_from_turn if t.resumed_from_turn else '—' }}</td>
+            <td>{{ t.updated_at }}
+                {% if t.status == 'interrupted' and b.status in trajectory_resume_states() %}
+                <form method="post" action="{{ url_for('main.benchmarks_resume_trajectory', bid=b.id, tid=t.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-link" type="submit">Resume this conversation</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}</tbody>
+    </table>
+    <a href="#trajectory-archives">Archived trajectories</a> ·
+    <a href="{{ url_for('main.benchmarks_trajectories_json', bid=b.id) }}">Trajectory export (JSON)</a>
+</details>
+{% endif %}

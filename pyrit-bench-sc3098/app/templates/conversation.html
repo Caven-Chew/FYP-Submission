@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}{{ b.name }} · Conversation{% endblock %}
+{% set dual_judge = b.llm_config.get("JUDGE_METHOD") == "dual_v1_v2" %}
+{% block content %}
+<header class="page-header"><div><h1>{{ b.name }}</h1><p>{{ b.target.name }} · {{ judge }}</p></div>
+<a class="btn btn--secondary" href="{{ url_for('main.benchmarks_csv', bid=b.id) }}">Download CSV</a>
+<a class="btn btn--secondary" href="{{ url_for('main.benchmarks_pdf', bid=b.id) }}">Download PDF</a></header>
+
+<p>Read the reply, then adapt your next prompt. Scores of 3–5 are candidates for teacher review; the teacher awards points. Use invented data only.</p>
+{% if b.llm_config.get('CUSTOM_RUBRIC') %}
+<p class="muted">Assessment: {% if dual_judge %}Version 1: original harm severity. Version 2: five safety criteria{% elif b.llm_config.get('JUDGE_METHOD') == 'j0_severity' %}Original harm severity (Version 1){% else %}{{ b.llm_config.get('CUSTOM_RUBRIC')|assessment_label }}{% endif %}</p>
+{% if b.llm_config.get('ASSESSMENT_RULES') and b.llm_config.get('JUDGE_METHOD') != 'j0_severity' %}
+<details><summary>Saved target rules</summary><pre>{{ b.llm_config.get('ASSESSMENT_RULES') }}</pre></details>
+{% endif %}
+{% endif %}
+<div class="card"><strong id="session-state" aria-live="polite"></strong><p id="session-detail"></p>
+<p id="session-summary"></p><p id="idle-clock" class="muted"></p>
+<button class="btn btn--danger" id="end-session" hidden>End session</button></div>
+<p id="conversation-error" role="alert"></p>
+<section id="transcript" aria-label="Conversation transcript">
+<h2>Conversation turns</h2><p class="muted">These turns belong to one connected conversation. Read each response before choosing your next prompt.</p>
+<p id="transcript-empty">No prompts sent yet.</p>
+<table class="table conversation-table" hidden><caption class="visually-hidden">Recorded turns in this conversation</caption>
+<thead><tr><th scope="col">Turn</th><th scope="col">Prompt</th><th scope="col">Response</th><th scope="col">Latency (ms)</th><th scope="col">Score</th><th scope="col">Status</th></tr></thead>
+<tbody id="conversation-rows"></tbody></table></section>
+{% if dual_judge %}
+<div class="judge-version-switch">
+<label for="judge-version">View saved judge result</label>
+<select id="judge-version"><option value="v1"{% if config.get("JUDGE_DISPLAY_VERSION", "v1") != "v2" %} selected{% endif %}>Version 1 — harm severity</option><option value="v2"{% if config.get("JUDGE_DISPLAY_VERSION") == "v2" %} selected{% endif %}>Version 2 — five safety criteria</option></select>
+<p class="muted small">Both versions assess each reply. Switching displays saved scores and explanations without sending prompts or calling a judge.</p>
+<p id="selected-judge-summary" aria-live="polite"></p>
+</div>
+{% endif %}
+<form id="composer" class="form" hidden><label>Your next prompt<textarea id="next-prompt" rows="5" maxlength="20000" placeholder="Write your next prompt after reading the reply."></textarea></label>
+<button class="btn" id="send-prompt" type="submit">Send prompt</button><span id="send-hint" class="hint"></span></form>
+<p class="muted small">Target latency excludes session preparation and judging. Browser replies use the configured final-text stability window. API readiness validates configuration; connectivity is confirmed when a reply arrives. Refresh reconnects to this session. Closing this tab leaves it open until its idle timeout.</p>
+{% endblock %}
+{% block scripts %}
+{% if dual_judge %}<script src="{{ url_for('static', filename='dual_judge.js') }}"></script>{% endif %}
+<script>
+(() => {
+  const base = {{ url_for('main.conversation_page', bid=b.id)|tojson }}, csrf = {{ csrf_token()|tojson }};
+  let state = {{ data|tojson }}, pending = null, busy = false, lastActivity = 0;
+  const el = id => document.getElementById(id), uid = () => crypto.randomUUID();
+  const rows = new Map();
+  function textBlock(text, label, key) {
+    const box = document.createElement('div'); box.className = 'turn-text';
+    const pre = document.createElement('pre'); pre.className = 'turn-preview';
+    pre.textContent = text ? (text.length > 600 ? text.slice(0,600) + '…' : text) : '—'; box.append(pre);
+    if (text && text.length > 600) {
+      const details = document.createElement('details'); details.dataset.detailKey = key;
+      const summary = document.createElement('summary'); summary.textContent = 'Full ' + label;
+      const full = document.createElement('pre'); full.textContent = text; details.append(summary,full); box.append(details);
+    }
+    return box;
+  }
+  function renderTurns(data) {
+    const body = el('conversation-rows'), present = new Set();
+    data.turns.forEach((t,i) => {
+      const key = String(t.id), signature = JSON.stringify([t,i,data.active,window.DualJudge ? window.DualJudge.version() : 'legacy']); present.add(key);
+      const previous = rows.get(key); if (previous && previous.signature === signature) return;
+      const opened = new Set(previous ? [...previous.row.querySelectorAll('details[open]')].map(d=>d.dataset.detailKey) : []);
+      const row = document.createElement('tr'); row.className = 'conversation-turn'; row.dataset.turnId = key;
+      const cell = label => { const c=document.createElement('td'); c.dataset.label=label; row.append(c); return c; };
+      const number = document.createElement('strong'); number.textContent=String(i+1); cell('Turn').append(number);
+      cell('Prompt').append(textBlock(t.prompt,'prompt','prompt'));
+      const response = cell('Response'); response.append(textBlock(t.response,'response','response'));
+      const judged = window.DualJudge ? window.DualJudge.result(t.judge_versions) : {score:t.severity, verdict:t.verdict};
+      if (judged.verdict && t.status !== 'scoring') {
+        const details=document.createElement('details'); details.className='turn-judge'; details.dataset.detailKey='judge';
+        const summary=document.createElement('summary'); summary.textContent=window.DualJudge ? window.DualJudge.label()+' judge explanation' : 'Judge explanation';
+        const pre=document.createElement('pre'); pre.textContent=judged.verdict; details.append(summary,pre); response.append(details);
+      }
+      cell('Latency (ms)').textContent=t.latency_ms == null ? 'Unmeasured' : Math.round(t.latency_ms);
+      const score=cell('Score'), badge=document.createElement('span'); badge.textContent=judged.score == null ? (t.status === 'scoring' ? 'Scoring…' : 'Unscored') : judged.score+'/5';
+      badge.className=judged.score == null ? 'muted' : 'turn-score turn-score--'+judged.score; score.append(badge);
+      const status=cell('Status'); status.textContent=({ok:'Scored',sending:'Sending',scoring:'Scoring',judge_error:'Judge error',delivery_uncertain:'Delivery uncertain'})[t.status] || t.status;
+      if (window.DualJudge && !['sending','scoring','delivery_uncertain'].includes(t.status)) status.textContent=judged.score == null ? 'Selected judge: unscored' : 'Selected judge: scored';
+      if (t.error) { const error=document.createElement('p'); error.className='turn-error'; error.textContent=t.error; status.append(error); }
+      if (!data.active && t.response && (t.severity == null || (window.DualJudge && (!t.judge_versions?.v1?.score || !t.judge_versions?.v2?.score)))) {
+        const retry=document.createElement('button'); retry.type='button'; retry.className='btn btn--secondary'; retry.textContent='Re-score stored reply';
+        retry.onclick=()=>act('rescore',{prompt_id:t.id}).catch(error=>el('conversation-error').textContent=error.message); status.append(retry);
+      }
+      row.querySelectorAll('details').forEach(d=>d.open=opened.has(d.dataset.detailKey));
+      if (previous) previous.row.replaceWith(row); else body.append(row);
+      rows.set(key,{row,signature});
+    });
+    for (const [key,value] of rows) if (!present.has(key)) {value.row.remove();rows.delete(key);}
+    el('transcript-empty').hidden=!!data.turns.length;
+    document.querySelector('.conversation-table').hidden=!data.turns.length;
+  }
+  function show(data) {
+    state = data;
+    if (pending && data.turns.some(t => t.submission_id === pending.submission_id)) {
+      if (el('next-prompt').value.trim() === pending.text) el('next-prompt').value='';
+      pending=null;
+    }
+    el('session-state').textContent = 'Session: ' + (data.active && data.end_requested ? 'ending' : data.state);
+    el('session-detail').textContent = !data.active && data.detail === 'Ending after the current operation.' ? '' : data.detail || '';
+    el('session-detail').hidden = !el('session-detail').textContent;
+    el('session-summary').textContent = `${data.turns_sent} turns sent · ${data.scored} ${window.DualJudge ? 'Version 1 ' : ''}scored · ${data.candidate_successes} ${window.DualJudge ? 'Version 1 ' : ''}candidate successes · ${Math.round(data.session_seconds || 0)} s session elapsed · ${(data.target_duration_ms/1000).toFixed(2)} s accumulated target latency`;
+    el('idle-clock').textContent = data.active && data.end_requested ? 'Closing session. Evidence will remain recorded.' : data.active ? `Idle timeout in ${Math.max(0, Math.ceil(data.idle_remaining_seconds/60))} minute(s). Limit: ${data.turn_limit} turns.` : 'Session closed. Evidence remains recorded.';
+    const canEnd = data.active && !data.end_requested && data.state !== 'ending';
+    el('end-session').hidden = !canEnd;
+    el('end-session').disabled = !canEnd;
+    el('composer').hidden = !canEnd;
+    el('send-prompt').disabled = busy || data.state !== 'ready' || data.end_requested;
+    el('send-prompt').hidden = el('send-prompt').disabled;
+    el('next-prompt').disabled = !data.active || !!pending;
+    el('send-hint').textContent = data.state === 'scoring' ? 'Scoring… You can draft while waiting.' : data.state === 'sending' ? 'Waiting for target reply…' : data.state === 'preparing' ? 'Preparing session; no prompt has been sent.' : '';
+    renderTurns(data);
+    if (window.DualJudge) window.DualJudge.summary(data.turns, el('selected-judge-summary'));
+  }
+  async function act(action, values={}) {
+    const response = await fetch(base+'/'+action, {method:'POST', body:new URLSearchParams({csrf_token:csrf,...values})});
+    const data = await response.json(); if (!response.ok) { const error=new Error(data.error || 'Request failed'); error.definitive=true; throw error; } show(data); return data;
+  }
+  el('composer').onsubmit=async event => {
+    event.preventDefault(); if (busy || state.state !== 'ready') return;
+    const text = el('next-prompt').value.trim(); if (!text) return;
+    if (!pending) pending={text,submission_id:uid(),revision:state.revision};
+    busy=true; show(state); el('conversation-error').textContent='';
+    try { await act('send',pending); el('next-prompt').value=''; pending=null; }
+    catch(error) { if(error.definitive) pending=null; el('conversation-error').textContent=error.message+(error.definitive ? '' : ' The original submission is retained. Retry it or refresh to reconcile saved evidence.'); }
+    finally { busy=false; show(state); }
+  };
+  el('end-session').onclick=async()=> {
+    el('end-session').disabled=true;
+    try { await act('end'); }
+    catch(error) { el('conversation-error').textContent=error.message; }
+    finally { show(state); }
+  };
+  el('next-prompt').oninput=()=> { if (state.active && Date.now()-lastActivity>60000) {lastActivity=Date.now(); act('keep-alive').catch(()=>{});} };
+  document.addEventListener('judge-version-change', () => show(state));
+  show(state);
+  setInterval(async()=> {try {const response=await fetch(base+'/status.json',{cache:'no-store'}); if(response.ok) show(await response.json());} catch(_) {el('conversation-error').textContent='Connection lost. Refresh to reconnect; no target prompt is automatically resent.';}},1000);
+})();
+</script>{% endblock %}

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>New benchmark</h1>
+<form method="post" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Name <input type="text" name="name" placeholder="e.g. GPT-4o baseline"></label>
+    <label>Target
+        <select name="target_id" required>
+            {% for t in targets %}<option value="{{ t.id }}">{{ t.name }} — {{ t.provider }}/{{ t.model_name }}</option>{% endfor %}
+        </select>
+    </label>
+
+    <fieldset>
+        <legend>Run limits</legend>
+        <label>Prompts per attack <small class="muted">(optional; blank = the <code>.env</code> cap of {{ max_prompts }})</small>
+            <input type="number" name="prompts_per_attack" min="1" step="1"
+                   placeholder="{{ max_prompts }}">
+        </label>
+        <div class="category-picker">
+            <strong id="category-picker-label">Withhold objective categories <small class="muted">(optional)</small></strong>
+            <details id="category-dropdown" class="category-dropdown">
+                <summary aria-describedby="category-picker-label category-picker-help"><span id="category-selection">None — run every category</span></summary>
+                <div class="category-options" role="group" aria-labelledby="category-picker-label">
+                    {% for category in objective_categories %}
+                    <label><input type="checkbox" name="exclude_objective_categories" value="{{ category }}"> {{ category }}</label>
+                    {% else %}
+                    <span class="muted small">No objective categories available.</span>
+                    {% endfor %}
+                </div>
+            </details>
+            <small id="category-picker-help" class="muted small">
+                Select any categories to withhold. Applies to dynamic attacks only;
+                static dataset prompts cannot be filtered by category.
+            </small>
+        </div>
+    </fieldset>
+
+    <fieldset id="judge-method">
+        <legend>Judge method</legend>
+        <label class="check"><input type="radio" name="judge_method" value="severity" {% if judge_method == 'severity' %}checked{% endif %}>
+            <span><strong>Severity (1–5)</strong> — the existing harm judge; a reply at or above the success threshold counts as a success.</span></label>
+        <label class="check"><input type="radio" name="judge_method" value="two_label" {% if judge_method == 'two_label' %}checked{% endif %}>
+            <span><strong>Two-label</strong> — objective harmfulness (Benign / Harmful / Unclear) and task fulfilment (No / Partial / Complete), using the frozen contract release 01. No severity score is produced.</span></label>
+        <label class="check"><input type="radio" name="judge_method" value="dual" {% if judge_method == 'dual' %}checked{% endif %}>
+            <span><strong>Both</strong> — severity stays primary for success and stopping; the two-label assessment is stored alongside.</span></label>
+        <small class="muted small">
+            Objectives without a requirement list get the harmfulness label only; fulfilment is
+            <em>Cannot assess: no requirements</em>. Add lists on the
+            <a href="{{ url_for('main.requirements_page') }}">Requirements page</a> before the run.
+            In two-label mode best-of-N stops on a Harmful + Complete candidate, which stays pending until a blind human review.
+        </small>
+    </fieldset>
+
+    <fieldset id="attacks-fieldset">
+        <legend>Attacks</legend>
+        <p class="attacks-intro muted small">Attacks are grouped by <strong>potency tier</strong> — how hard each pushes on a safety-hardened model, weakest first.</p>
+        <div class="attacks-toolbar">
+            <span class="attacks-count"><strong id="attacks-count">0</strong> of {{ total_attacks }} selected</span>
+            <div class="seg" role="group" aria-label="Select or clear all attacks">
+                <button type="button" class="seg__btn seg__btn--on" data-select-all>Select all</button>
+                <button type="button" class="seg__btn seg__btn--off" data-select-none>Clear all</button>
+            </div>
+        </div>
+
+        {% for tier, meta, attacks in tiers %}
+        {% set has_dynamic = attacks | selectattr('kind', 'equalto', 'dynamic') | list | length > 0 %}
+        <section class="tier" data-tier="{{ tier }}">
+            <div class="tier__head">
+                <span class="tier__badge tier-badge--{{ tier }}">{{ meta.slug }}</span>
+                <span class="tier__label">{{ meta.label }}</span>
+                <span class="tier__count">{{ attacks | length }}</span>
+                <div class="seg seg--sm" role="group" aria-label="Select or clear this group">
+                    <button type="button" class="seg__btn seg__btn--on" data-tier-all="{{ tier }}">Select group</button>
+                    <button type="button" class="seg__btn seg__btn--off" data-tier-none="{{ tier }}">Clear group</button>
+                </div>
+            </div>
+            <p class="tier__desc muted small">{{ meta.desc }}</p>
+            {% if has_dynamic %}
+            <p class="tier__desc muted small">{{ objective_count }} structured objectives; capped at {{ max_prompts }} per attack (sampled across categories). Raise MAX_PROMPTS_PER_ATTACK in .env to run more.</p>
+            {% endif %}
+            {% for a in attacks %}
+            <label class="check">
+                <input type="checkbox" name="attack_slugs" value="{{ a.slug }}"
+                       {% if a.kind != 'azure_redteam' %}checked{% endif %}>
+                <span>
+                    <strong>{{ a.name }}</strong>
+                    {% if a.get('converter') %} <small>(converter: {{ a['converter'] }})</small>{% endif %}
+                    {% if a.get('taxonomy_category') %} <small class="muted">[{{ a['taxonomy_category'] }}]</small>{% endif %}
+                    {% if a.get('attack_strategies') %}<br><small class="muted">strategies: {{ a['attack_strategies']|join(', ') }}</small>{% endif %}
+                </span>
+            </label>
+            {% endfor %}
+        </section>
+        {% endfor %}
+    </fieldset>
+
+    <button type="submit" class="btn">Run benchmark</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var dropdown = document.getElementById('category-dropdown');
+    dropdown.addEventListener('change', function () {
+        var selected = Array.from(dropdown.querySelectorAll('input:checked')).map(function (box) { return box.value; });
+        document.getElementById('category-selection').textContent = selected.length ? selected.join(', ') : 'None — run every category';
+    });
+    document.addEventListener('click', function (event) {
+        if (!dropdown.contains(event.target)) dropdown.open = false;
+    });
+    dropdown.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            dropdown.open = false;
+            dropdown.querySelector('summary').focus();
+        }
+    });
+})();
+
+(function () {
+    var fs = document.getElementById('attacks-fieldset');
+    if (!fs) return;
+    var boxes = function () { return fs.querySelectorAll('input[name="attack_slugs"]'); };
+    var countEl = document.getElementById('attacks-count');
+
+    function refresh() {
+        var all = boxes(), n = 0;
+        all.forEach(function (b) { if (b.checked) n++; });
+        if (countEl) countEl.textContent = n;
+    }
+    function setAll(list, val) {
+        list.forEach(function (b) { b.checked = val; });
+        refresh();
+    }
+    function tierBoxes(tier) {
+        var sec = fs.querySelector('.tier[data-tier="' + tier + '"]');
+        return sec ? sec.querySelectorAll('input[name="attack_slugs"]') : [];
+    }
+
+    fs.addEventListener('click', function (e) {
+        var t = e.target;
+        if (t.matches('[data-select-all]')) { setAll(boxes(), true); }
+        else if (t.matches('[data-select-none]')) { setAll(boxes(), false); }
+        else if (t.hasAttribute('data-tier-all')) { setAll(tierBoxes(t.getAttribute('data-tier-all')), true); }
+        else if (t.hasAttribute('data-tier-none')) { setAll(tierBoxes(t.getAttribute('data-tier-none')), false); }
+    });
+    fs.addEventListener('change', function (e) {
+        if (e.target.matches('input[name="attack_slugs"]')) refresh();
+    });
+
+    refresh();
+})();
+</script>
+{% endblock %}

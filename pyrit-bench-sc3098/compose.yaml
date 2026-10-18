@@ -1,0 +1,21 @@
+services:
+  sc3098:
+    build: .
+    init: true
+    ports:
+      - "127.0.0.1:5002:5000"
+      - "127.0.0.1:6080:6080"
+    environment:
+      DISPLAY: :99
+      HOST: 0.0.0.0
+      PORT: 5000
+      IN_DOCKER: "1"
+    env_file:
+      - .env
+    # Defines host.docker.internal on Linux Docker Engine, as Docker Desktop already does.
+    # On Linux the bot must also listen on an address the container can reach, not only 127.0.0.1.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./instance:/app/instance
+    shm_size: 1gb

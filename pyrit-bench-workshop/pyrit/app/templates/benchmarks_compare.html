@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+    <h1>Compare benchmarks</h1>
+    <a class="btn" href="{{ url_for('main.benchmarks_list') }}">← Back</a>
+</header>
+
+<table class="table">
+    <thead><tr><th>Benchmark</th><th>Target</th><th>Models</th><th>Prompts</th><th>Risk (per-attempt) [95% CI]</th><th>Reached (best-of-N) [95% CI]</th></tr></thead>
+    <tbody>
+    {% for b in benches %}
+        {% set bon = b.best_of_n %}
+        <tr>
+            <td><a href="{{ url_for('main.benchmarks_detail', bid=b.id) }}"><strong>{{ b.name }}</strong></a></td>
+            <td>{{ b.target.name }}</td>
+            <td class="small muted">{{ b.llm_config_summary }}</td>
+            <td>{{ b.total_prompts or 0 }}</td>
+            <td>{{ b.risk_score }} <span class="muted small">[{{ '%.1f'|format(b.risk_ci.low) }}–{{ '%.1f'|format(b.risk_ci.high) }}]</span></td>
+            <td>{{ bon.reached }}/{{ bon.groups }} ({{ '%.1f%%' % bon.rate }}) <span class="muted small">[{{ '%.1f'|format(b.best_of_n_ci.low) }}–{{ '%.1f'|format(b.best_of_n_ci.high) }}]</span></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if compare_chart %}
+<div class="card">
+    <strong>Success vs attempt budget — overlaid</strong>
+    <p class="muted small">
+        Share of objectives reached at least once given N attempts each, one line
+        per benchmark. The gap between lines is the effect of whatever differs
+        between the runs (attacker model, threshold, attack set).
+    </p>
+    {% set c = compare_chart %}
+    <svg class="reach-chart" viewBox="0 0 {{ c.width }} {{ c.height }}"
+         width="100%" height="{{ c.height }}" role="img"
+         aria-label="Reach curves compared across benchmarks">
+        {% for t in c.y_ticks %}
+        <line x1="{{ c.pad_l }}" y1="{{ t.y }}" x2="{{ c.pad_l + c.plot_w }}" y2="{{ t.y }}"
+              stroke="#e2e8f0" stroke-width="1"/>
+        <text x="{{ c.pad_l - 8 }}" y="{{ t.y + 4 }}" text-anchor="end"
+              font-size="10" fill="#64748b">{{ t.v }}%</text>
+        {% endfor %}
+        <line x1="{{ c.pad_l }}" y1="{{ c.pad_t }}" x2="{{ c.pad_l }}"
+              y2="{{ c.pad_t + c.plot_h }}" stroke="#94a3b8" stroke-width="1"/>
+        {% for t in c.x_ticks %}
+        <text x="{{ t.x }}" y="{{ c.pad_t + c.plot_h + 16 }}" text-anchor="middle"
+              font-size="10" fill="#64748b">{{ t.n }}</text>
+        {% endfor %}
+        <text x="{{ c.pad_l + c.plot_w / 2 }}" y="{{ c.height - 4 }}" text-anchor="middle"
+              font-size="10" fill="#64748b">attempts per objective (N)</text>
+        {% for l in c.lines %}
+        <polyline points="{{ l.points }}" fill="none" stroke="#0f172a"
+                  stroke-width="1.6" stroke-dasharray="{{ l.dash }}" opacity="0.85"/>
+        {% for m in l.markers %}
+        <circle cx="{{ m.x }}" cy="{{ m.y }}" r="2.2" fill="#0f172a" opacity="0.85"/>
+        {% endfor %}
+        {% endfor %}
+    </svg>
+    <div class="chart-legend small muted">
+        {% for l in c.lines %}
+        <span class="legend-item">
+            <svg width="26" height="8" aria-hidden="true">
+                <line x1="0" y1="4" x2="26" y2="4" stroke="#0f172a"
+                      stroke-width="1.6" stroke-dasharray="{{ l.dash }}" opacity="0.85"/>
+            </svg>
+            {{ l.label }} <b>{{ '%.1f%%' % l.final }}</b>
+        </span>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<p class="muted small">These runs have no multi-attempt data, so there is no curve to overlay — compare the tables above and below.</p>
+{% endif %}
+
+{% if tax_rows %}
+<div class="card">
+    <strong>Success rate by injection category</strong>
+    <p class="muted small">Per-taxonomy attack success rate for each run, side by side. Blank = the category was not exercised in that run.</p>
+    <table class="table small">
+        <thead><tr><th>Taxonomy</th>{% for b in benches %}<th>{{ b.name }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for cat, per in tax_rows %}
+            <tr>
+                <td>{{ cat }}</td>
+                {% for b in benches %}
+                    {% set agg = per.get(b.id) %}
+                    <td>{% if agg %}{{ '%.1f%%' % agg.rate }} <span class="muted">({{ agg.succ }}/{{ agg.total }})</span>{% else %}—{% endif %}</td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

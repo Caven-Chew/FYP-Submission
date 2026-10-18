@@ -1,0 +1,28 @@
+Assess the supplied example.
+
+Return JSON only.
+
+INPUT (JSON):
+{
+  "unit": "objective",
+  "objective_lines": [
+    {
+      "id": "O001",
+      "text": "State café opening hours.\n"
+    }
+  ],
+  "context_lines": []
+}
+
+REQUIRED OUTPUT SCHEMA (JSON Schema):
+{
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "label"
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "form": "SC3098 — Reading PyRIT-Bench results",
+  "purpose": "Maps each Google Sheets export column of the live form to a stable item key for tools/sc3098_form_analysis.py. Written 11 October 2026 (SGT) before any response was read.",
+  "wording_source": "reports/final_review/sc3098_survey/interpretation_activity/versions/v2_google_form_2026-10-09.md, latest recorded wording through version 10 (9 October 2026, about 12:50 SGT). Edits made after version 10 are not recorded there; the tool reports any header that differs.",
+  "matching": "A Google Sheets header is 'Question title' or, for grid rows, 'Question title [Row label]'. Text is normalised (Unicode NFKC, straight quotes, plain hyphens, collapsed spaces, case-folded). Each key is matched at the first level that gives exactly one column: (1) exact: header equals 'header' or one of 'aliases'; (2) code: the header starts with the item code (for example 'A1.') and, for grid rows, the row label matches exactly or on its start (first 25 normalised characters, or the whole shorter label if it has at least 15); (3) prefix: the question title, with any item code removed, has the same start as the recorded title (first 60 normalised characters, or the whole shorter title if it has at least 30), with the same row rule for grid rows. Two or more columns at the best level make the key ambiguous: it is reported and not analysed. Columns matched to no key are reported with their non-blank count; their contents are never printed.",
+  "how_to_record_an_edit": "If a header or option was reworded after version 10, add the new full text to 'aliases' (header) or 'option_aliases' (option) here and record the change and its date as a deviation in ANALYSIS_PLAN.md §11. Do not change 'intended'.",
+  "stale_columns": [
+    {
+      "code": "P1",
+      "grid": true,
+      "known_rows": [
+        "Building an LLM-powered chatbot",
+        "Testing an LLM-powered chatbot with prompts intended to make it break its rules",
+        "Using an automated tool to test an LLM chatbot (for example PyRIT, garak or promptfoo)"
+      ],
+      "rule": "P1 was a grid in versions 4–5 and multiple choice from version 6. The linked sheet may keep empty grid columns for removed rows; FACILITATOR_GUIDE.md version-2 rules: ignore empty sheet columns left by rows removed in version 5. Any P1 grid column is reported and never analysed; a non-empty one is flagged for checking."
+    }
+  ],
+  "sus_value_aliases": {
+    "strongly disagree": 1,
+    "strongly agree": 5
+  },
+  "items": [
+    {
+      "key": "Timestamp",
+      "type": "timestamp",
+      "header": "Timestamp",
+      "record": "Google Sheets default first column (record: 'first columns Timestamp, then the P1 rows'). Read only to recognise submissions; never written to any output."
+    },
+    {
+      "key": "P1",
+      "code": "P1",
+      "type": "choice",
+      "header": "P1. Before the PyRIT-Bench session, had you ever used an automated tool to test an LLM chatbot (for example PyRIT, garak or promptfoo)?",
+      "options": ["No", "Yes, once", "Yes, more than once", "Not sure"],
+      "record": "Version 6 (multiple choice)."
+    },
+    {
+      "key": "A1_choice",
+      "code": "A1",
+      "type": "choice",
+      "case": "A",
+      "header": "A1. A reviewer concludes: “This reply did not reveal the protected internal notes.” Which answer is best supported by the evidence?",
+      "options": [
+        "A. The low harm score shows that the protected notes were kept confidential.",
+        "B. The notes are fictional, so revealing them cannot count as a confidentiality failure.",
+        "C. The reply reveals protected notes even though the harm score is low.",
+        "D. Not sure."
+      ],
+      "intended": "C. The reply reveals protected notes even though the harm score is low.",
+      "not_sure": "D. Not sure.",
+      "record": "Version 2 stem and options; options unchanged through version 10 (version 7 note). Intended C per FACILITATOR_GUIDE.md."
+    },
+    {
+      "key": "A2_reason",
+      "code": "A2",
+      "type": "text",
+      "case": "A",
+      "header": "A2. Explain your choice in one sentence, referring to the reply or the judge’s scoring scope.",
+      "record": "Version 2; no later change recorded."
+    },
+    {
+      "key": "B1_choice",
+      "code": "B1",
+      "type": "choice",
+      "case": "B",
+      "header": "B1. A teammate sees this result and writes: “The chatbot passed this test.” Is the teammate right?",
+      "options": [
+        "A. No. The test stopped with an error before the chatbot replied, so this result says nothing about whether the chatbot can resist the attack.",
+        "B. Yes. No harmful reply was recorded, so the chatbot passed.",
+        "C. Partly. The chatbot probably blocked the attack, but the test should be run again to confirm.",
+        "D. Not sure."
+      ],
+      "intended": "A. No. The test stopped with an error before the chatbot replied, so this result says nothing about whether the chatbot can resist the attack.",
+      "not_sure": "D. Not sure.",
+      "record": "Version 9. Intended A per FACILITATOR_GUIDE.md and the version 9 record."
+    },
+    {
+      "key": "B2_reason",
+      "code": "B2",
+      "type": "text",
+      "case": "B",
+      "header": "B2. Explain your choice in one sentence, using what the saved result shows.",
+      "record": "Version 9."
+    },
+    {
+      "key": "C1_choice",
+      "code": "C1",
+      "type": "choice",
+      "case": "C",
+      "header": "C1. The two judge versions gave the same saved reply different scores: 1/5 and 4/5. What is the best explanation?",
+      "options": [
+        "A. The chatbot became less safe, so it scored higher.",
+        "B. The two versions check different things, so they score the same reply differently.",
+        "C. One of the scores must be wrong, because both judged the same reply.",
+        "D. Not sure."
+      ],
+      "intended": "B. The two versions check different things, so they score the same reply differently.",
+      "not_sure": "D. Not sure.",
+      "record": "Version 10. Intended B per FACILITATOR_GUIDE.md and the version 10 record."
+    },
+    {
+      "key": "C2_reason",
+      "code": "C2",
+      "type": "text",
+      "case": "C",
+      "header": "C2. Explain your choice in one sentence, using what each judge checks.",
+      "record": "Version 10."
+    },
+    {
+      "key": "D1",
+      "code": "D1",
+      "type": "choice",
+      "header": "D1. Think of the most recent PyRIT-Bench result or error message you reviewed during your SC3098 lab. What was the main action you actually took afterwards?",
+      "options": [
+        "I inspected the attack prompt, chatbot reply or judge explanation more closely.",
+        "I changed the chatbot’s instructions or safeguards.",
+        "I changed the test prompt or attack settings.",
+        "I ran another test to check the result.",
+        "I investigated a connection or run error.",
+        "I reviewed it but took no further action.",
+        "I did not review a result or error message.",
+        "I cannot remember."
+      ],
+      "other_allowed": true,
+      "no_review_options": ["I did not review a result or error message.", "I cannot remember."],
+      "record": "Version 2 (page 5); multiple choice with Other. Other text is free text and goes only to free_text_for_coding.md."
+    },
+    {
+      "key": "D2",
+      "code": "D2",
+      "type": "text",
+      "header": "D2. Which part of that result or error message, if any, influenced your action or decision?",
+      "record": "Version 2 (page 5)."
+    },
+    {"key": "O1_01", "code": "O1", "type": "sus", "sus_item": 1, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I think that I would like to use this system frequently.", "record": "Version 6 grid; row wording by reference to SURVEY_FORM.md U1–U10 (standard SUS wording and order), not captured verbatim from the live form."},
+    {"key": "O1_02", "code": "O1", "type": "sus", "sus_item": 2, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I found the system unnecessarily complex.", "record": "As O1_01."},
+    {"key": "O1_03", "code": "O1", "type": "sus", "sus_item": 3, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I thought the system was easy to use.", "record": "As O1_01."},
+    {"key": "O1_04", "code": "O1", "type": "sus", "sus_item": 4, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I think that I would need the support of a technical person to be able to use this system.", "record": "As O1_01."},
+    {"key": "O1_05", "code": "O1", "type": "sus", "sus_item": 5, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I found the various functions in this system were well integrated.", "record": "As O1_01."},
+    {"key": "O1_06", "code": "O1", "type": "sus", "sus_item": 6, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I thought there was too much inconsistency in this system.", "record": "As O1_01."},
+    {"key": "O1_07", "code": "O1", "type": "sus", "sus_item": 7, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I would imagine that most people would learn to use this system very quickly.", "record": "As O1_01."},
+    {"key": "O1_08", "code": "O1", "type": "sus", "sus_item": 8, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I found the system very cumbersome to use.", "record": "As O1_01."},
+    {"key": "O1_09", "code": "O1", "type": "sus", "sus_item": 9, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I felt very confident using the system.", "record": "As O1_01."},
+    {"key": "O1_10", "code": "O1", "type": "sus", "sus_item": 10, "header": "O1. How much do you agree with each statement? (“This system” means PyRIT-Bench.)", "row": "I needed to learn a lot of things before I could get going with this system.", "record": "As O1_01."},
+    {
+      "key": "O2",
+      "code": "O2",
+      "type": "choice",
+      "header": "O2. How useful were PyRIT-Bench’s automated attacks for finding weaknesses in your chatbot, compared with testing by hand?",
+      "options": ["1 Not at all useful", "2 Slightly useful", "3 Moderately useful", "4 Very useful", "5 Extremely useful", "Cannot judge"],
+      "rating_options": ["1 Not at all useful", "2 Slightly useful", "3 Moderately useful", "4 Very useful", "5 Extremely useful"],
+      "september": {"item": "P14", "stem": "How useful was PyRIT-Bench for carrying out a repeatable chatbot security assessment?", "comparability": "Same response options as September P14; the question stem differs (automated attacks compared with testing by hand, rather than a repeatable security assessment)."},
+      "record": "Version 6."
+    },
+    {"key": "O3_1", "code": "O3", "type": "grid_choice", "header": "O3. How clear was each of the following in PyRIT-Bench?", "row": "The run status (for example running, completed or failed)", "options": ["Not at all clear", "Slightly clear", "Moderately clear", "Very clear", "Completely clear", "Did not see this"], "rating_options": ["Not at all clear", "Slightly clear", "Moderately clear", "Very clear", "Completely clear"], "top_two": ["Very clear", "Completely clear"], "record": "Version 6 (adapted from survey K1)."},
+    {"key": "O3_2", "code": "O3", "type": "grid_choice", "header": "O3. How clear was each of the following in PyRIT-Bench?", "row": "What the scores meant", "options": ["Not at all clear", "Slightly clear", "Moderately clear", "Very clear", "Completely clear", "Did not see this"], "rating_options": ["Not at all clear", "Slightly clear", "Moderately clear", "Very clear", "Completely clear"], "top_two": ["Very clear", "Completely clear"], "record": "Version 6."},
+    {"key": "O3_3", "code": "O3", "type": "grid_choice", "header": "O3. How clear was each of the following in PyRIT-Bench?", "row": "Why the judge gave its score (its explanation)", "options": ["Not at all clear", "Slightly clear", "Moderately clear", "Very clear", "Completely clear", "Did not see this"], "rating_options": ["Not at all clear", "Slightly clear", "Moderately clear", "Very clear", "Completely clear"], "top_two": ["Very clear", "Completely clear"], "record": "Version 6."},
+    {"key": "O3_4", "code": "O3", "type": "grid_choice", "header": "O3. How clear was each of the following in PyRIT-Bench?", "row": "What to do next after an error message", "options": ["Not at all clear", "Slightly clear", "Moderately clear", "Very clear", "Completely clear", "Did not see this"], "rating_options": ["Not at all clear", "Slightly clear", "Moderately clear", "Very clear", "Completely clear"], "top_two": ["Very clear", "Completely clear"], "record": "Version 6."},
+    {
+      "key": "O4",
+      "code": "O4",
+      "type": "choice",
+      "header": "O4. How likely are you to use PyRIT-Bench for a future authorised chatbot test?",
+      "options": ["Very unlikely", "Somewhat unlikely", "Neither likely nor unlikely", "Somewhat likely", "Very likely", "I do not expect to need this kind of tool", "Cannot judge"],
+      "rating_options": ["Very unlikely", "Somewhat unlikely", "Neither likely nor unlikely", "Somewhat likely", "Very likely"],
+      "september": {"item": "P15", "stem": "How likely are you to use PyRIT-Bench for a future authorised chatbot assessment?", "comparability": "Response options recorded as those of September P15 / survey F2; the stem says 'test' where September says 'assessment'."},
+      "record": "Version 6 stem; options recorded only as 'options as September P15 / survey F2' and taken from SURVEY_FORM.md F2, not captured verbatim from the live form."
+    },
+    {
+      "key": "O5",
+      "code": "O5",
+      "type": "text",
+      "header": "O5. Which step, label or result did you find most confusing, if any? (“Nothing was confusing” is a valid answer.)",
+      "september": {"item": "P2", "comparability": "Same stem as September P2 with the valid-answer note added; thematic coding only."},
+      "record": "Version 6."
+    },
+    {
+      "key": "O6",
+      "code": "O6",
+      "type": "text",
+      "header": "O6. What one improvement would you make to PyRIT-Bench, and why? (“No change” is a valid answer.)",
+      "september": {"item": "P3", "comparability": "Adapted from September P3 ('What improvement would you prioritise …'); paragraph instead of short answer; thematic coding only."},
+      "record": "Version 6."
+    }
+  ]
+}

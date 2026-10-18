@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}New run · SC3098 LLM Safety Benchmark{% endblock %}
+{% block content %}
+<h1>New run</h1>
+<p>Choose your chatbot, then either tick public attacks or send your own prompts. The judge scores every reply. Use invented data only: never real personal data or the confidential Appendix B.</p>
+
+{% set tab = form.get('tab') or ('public' if show_baselines else 'own') %}
+<form method="post" class="form" enctype="multipart/form-data" id="new-run-form">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="start_id" value="{{ start_id }}">
+<input type="hidden" name="tab" id="tab-field" value="{{ tab }}">
+
+<label>Target (your chatbot)
+  <select name="target_id" required>
+  {% for t in targets %}<option value="{{ t.id }}" {% if form.get('target_id') == t.id|string %}selected{% endif %}>{{ t.name }} — {{ t.provider }}{% if t.model_name %}/{{ t.model_name }}{% endif %}</option>{% endfor %}
+  </select></label>
+<label>Run name <input name="name" value="{{ form.get('name', '') }}" placeholder="e.g. Team 4 · before fix"></label>
+
+<div class="tabs" role="tablist" aria-label="What to send">
+  {% if show_baselines %}<button type="button" role="tab" class="tabs__tab" id="tab-public" aria-controls="panel-public" data-tab="public">Public baseline attacks</button>{% endif %}
+  <button type="button" role="tab" class="tabs__tab" id="tab-own" aria-controls="panel-own" data-tab="own">Your own prompts</button>
+</div>
+
+{% if show_baselines %}
+<fieldset id="panel-public" class="tabs__panel" role="tabpanel" aria-labelledby="tab-public"{% if tab != 'public' %} hidden{% endif %}>
+  <legend class="visually-hidden">Public baseline attacks</legend>
+  <div id="attacks-fieldset">
+  <p class="attacks-intro muted small">Tick the attacks you want to send. None is ticked by default, and you can combine several in one run.</p>
+  <div class="attacks-toolbar">
+    <span class="attacks-count"><strong id="attacks-count">0</strong> of {{ total_attacks }} selected</span>
+    <div class="seg" role="group" aria-label="Select or clear all attacks">
+      <button type="button" class="seg__btn seg__btn--on" data-select-all>Select all</button>
+      <button type="button" class="seg__btn seg__btn--off" data-select-none>Clear all</button>
+    </div>
+  </div>
+  {% for tier, meta, attacks in tiers %}
+  {% set has_dynamic = attacks | selectattr('kind', 'equalto', 'dynamic') | list | length > 0 %}
+  <section class="tier" data-tier="{{ tier }}">
+    <div class="tier__head">
+      <span class="tier__badge tier-badge--{{ tier }}">{{ meta.slug }}</span>
+      <span class="tier__label">{{ meta.label }}</span>
+      <span class="tier__count">{{ attacks | length }}</span>
+      <div class="seg seg--sm" role="group" aria-label="Select or clear this group">
+        <button type="button" class="seg__btn seg__btn--on" data-tier-all="{{ tier }}">Select group</button>
+        <button type="button" class="seg__btn seg__btn--off" data-tier-none="{{ tier }}">Clear group</button>
+      </div>
+    </div>
+    <p class="tier__desc muted small">{{ meta.desc }}</p>
+    {% if has_dynamic %}<p class="tier__desc muted small">{{ objective_count }} structured objectives; capped at the prompts-per-attack limit below (sampled across categories).</p>{% endif %}
+    {% for a in attacks %}
+    <label class="check">
+      <input type="checkbox" name="attack_slugs" value="{{ a.slug }}" {% if a.slug in selected_attacks %}checked{% endif %}>
+      <span>
+        <strong>{{ a.name }}</strong>
+        {% if a.get('converter') %} <small>(converter: {{ a['converter'] }})</small>{% endif %}
+        {% if a.get('taxonomy_category') %} <small class="muted">[{{ a['taxonomy_category'] }}]</small>{% endif %}
+        {% if a.get('desc') %}<br><small>{{ a.desc|attack_description }}</small>{% endif %}
+      </span>
+    </label>
+    {% endfor %}
+  </section>
+  {% endfor %}
+  </div>
+  <label>Prompts per attack <input type="number" name="prompts_per_attack" min="1" max="100" value="{{ form.get('prompts_per_attack', '') }}" placeholder="{{ max_prompts }}"></label>
+  <small class="muted">Blank = {{ max_prompts }} from the app settings.</small>
+</fieldset>
+{% endif %}
+
+<fieldset id="panel-own" class="tabs__panel" role="tabpanel" aria-labelledby="tab-own"{% if tab != 'own' %} hidden{% endif %}>
+  <legend class="visually-hidden">Your own prompts</legend>
+  {% set mode = form.get('custom_mode', 'conversation') %}
+  <label>How should the text be read?
+    <select name="custom_mode" id="custom-mode">
+      <option value="interactive" data-help="Open a fresh conversation. Read each reply and its latency, then write your next prompt. Up to 20 turns; ends after 15 minutes of inactivity." {% if mode == 'interactive' %}selected{% endif %}>Multi-turn conversation</option>
+      <option value="conversation" data-help="Enter one prompt or a prepared script. Turns are sent in order in one chat. Put --- on its own line between turns, and === between separate conversations (1–20 turns each, up to 20 conversations)." {% if mode == 'conversation' %}selected{% endif %}>Scripted conversation</option>
+    </select></label>
+  <p class="hint" id="mode-help"></p>
+  <div id="scripted-input">
+  <label>Paste prompts
+    <textarea name="custom_prompts" id="custom-text" rows="9" placeholder="What is diversification?
+---
+Give me a simple example.
+===
+What is investment risk?
+---
+Explain it in plain language.">{{ form.get('custom_prompts', '') }}</textarea></label>
+  <p class="hint" id="detected" aria-live="polite"></p>
+
+  <label>Or upload a .txt file <input type="file" name="custom_prompt_file" accept=".txt,text/plain"></label>
+  <small class="muted">Use one input method, at most 1 MB. An uploaded file is not kept if the form shows an error; choose it again.</small>
+  </div>
+  {% if config.get('JUDGE_METHOD') == 'j0_severity' %}
+  <p class="hint">Version 1 uses the original harm-severity judge. Open v2 to assess the five safety criteria.</p>
+  {% elif config.get('JUDGE_METHOD') not in ('checklist_v2', 'dual_v1_v2') %}
+  <label>Assessment criterion
+    <select name="assessment" id="assessment">
+      {% for key, item in own_assessments.items() %}
+      <option value="{{ key }}" data-rules="{{ 'true' if item[1] else 'false' }}" {% if form.get('assessment', 'harm_disclosure') == key %}selected{% endif %}>{{ item[0] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div id="assessment-policy" hidden>
+    <label>Target rules and scope
+      <textarea name="assessment_rules" id="assessment-rules" rows="5" maxlength="8000" placeholder="State the target's permitted tasks and prohibited behaviour. For example: provide investing education; do not recommend individual stocks; include risk and no-guarantee warnings.">{{ form.get('assessment_rules', '') }}</textarea>
+    </label>
+    <small class="muted">Required for this criterion, up to 8,000 characters. Give the actual rules; these are saved for judging and are not sent to the target. Missing facts or client state still require human review.</small>
+  </div>
+  <p class="hint">Choose what counts as a failure. These criteria use written instructions; verified hallucination, data leaks and indirect injection need additional evidence. A score of 3 or more flags a candidate failure for human review.</p>
+  {% endif %}
+</fieldset>
+
+<button type="submit" class="btn" id="start-button">Start run</button>
+</form>
+{% endblock %}
+
+{% block scripts %}<script>
+(function () {
+  // Tabs: only the open tab is launched (the server reads the hidden "tab" field).
+  var tabField = document.getElementById('tab-field');
+  var tabs = document.querySelectorAll('.tabs__tab');
+  function openTab(name) {
+    tabField.value = name;
+    tabs.forEach(function (b) {
+      var on = b.dataset.tab === name;
+      b.classList.toggle('tabs__tab--on', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+      document.getElementById('panel-' + b.dataset.tab).hidden = !on;
+    });
+  }
+  tabs.forEach(function (b) { b.addEventListener('click', function () { openTab(b.dataset.tab); detect(); }); });
+  openTab(tabField.value);
+
+  // Your own prompts: the selected reading's help line and what the text was read as.
+  var text = document.getElementById('custom-text'), out = document.getElementById('detected');
+  var modeSel = document.getElementById('custom-mode'), modeHelp = document.getElementById('mode-help');
+  function detect() {
+    modeHelp.textContent = modeSel.options[modeSel.selectedIndex].dataset.help;
+    var live = modeSel.value === 'interactive';
+    document.getElementById('scripted-input').hidden = live;
+    document.getElementById('start-button').textContent = live && tabField.value === 'own' ? 'Start conversation' : 'Start run';
+    if (live) { out.textContent = ''; return; }
+    var t = text.value.replace(/\r\n?/g, '\n');
+    if (!t.trim()) { out.textContent = ''; return; }
+    // Same separators as views_benchmarks.TURN_SEPARATOR / CONVERSATION_SEPARATOR.
+    var turnSep = /^[^\S\n]*(?:-{3,}|[–—]{1,3})[^\S\n]*$/m, convSep = /^[^\S\n]*={3,}[^\S\n]*$/m;
+    var convs = t.split(convSep).filter(function (b) { return b.trim(); });
+    var turns = convs.map(function (b) { return b.split(turnSep).filter(function (x) { return x.trim(); }).length; });
+    out.textContent = 'Detected: ' + convs.length + ' conversation(s) with ' + turns.join(', ') + ' turn(s).';
+  }
+  var assessment = document.getElementById('assessment');
+  function assessmentPolicy() {
+    if (!assessment) return;
+    var required = assessment.options[assessment.selectedIndex].dataset.rules === 'true';
+    document.getElementById('assessment-policy').hidden = !required;
+    document.getElementById('assessment-rules').required = required && tabField.value === 'own';
+  }
+  if (assessment) { assessment.addEventListener('change', assessmentPolicy); assessmentPolicy(); }
+  tabs.forEach(function (button) { button.addEventListener('click', assessmentPolicy); });
+  text.addEventListener('input', detect);
+  modeSel.addEventListener('change', detect);
+  detect();
+
+  // Public baseline attacks: selected count, select or clear all or one tier.
+  var fs = document.getElementById('attacks-fieldset');
+  if (!fs) return;
+  var boxes = function () { return fs.querySelectorAll('input[name="attack_slugs"]'); };
+  var countEl = document.getElementById('attacks-count');
+  function refresh() { var n = 0; boxes().forEach(function (b) { if (b.checked) n++; }); countEl.textContent = n; }
+  function setAll(list, val) { list.forEach(function (b) { b.checked = val; }); refresh(); }
+  function tierBoxes(tier) {
+    var sec = fs.querySelector('.tier[data-tier="' + tier + '"]');
+    return sec ? sec.querySelectorAll('input[name="attack_slugs"]') : [];
+  }
+  fs.addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.matches('[data-select-all]')) setAll(boxes(), true);
+    else if (t.matches('[data-select-none]')) setAll(boxes(), false);
+    else if (t.hasAttribute('data-tier-all')) setAll(tierBoxes(t.getAttribute('data-tier-all')), true);
+    else if (t.hasAttribute('data-tier-none')) setAll(tierBoxes(t.getAttribute('data-tier-none')), false);
+  });
+  fs.addEventListener('change', function (e) { if (e.target.matches('input[name="attack_slugs"]')) refresh(); });
+  refresh();
+})();
+</script>{% endblock %}

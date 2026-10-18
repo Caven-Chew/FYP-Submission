@@ -1,0 +1,79 @@
+{# Two-label summary (Task 7). Rendered inside #two-label-panel on the run page
+   and, unchanged, as status.json two_label.html, so live numbers match the
+   final render. All figures come from rollups.two_label_rollup. #}
+{% set s = tl_summary %}
+{% set rel = b.llm_config.get('TWO_LABEL') or {} %}
+{% macro outcome_table(t, outcomes, key) %}
+<table class="table small" data-two-label-table="{{ key }}">
+    <thead><tr><th>Objective label</th><th>Responses</th>
+        {% for o in outcomes %}<th>{{ o.label }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for g in t.rows if g.n %}
+    <tr><td>{{ g.label }}</td><td>{{ g.n }}</td>
+        {% for o in outcomes %}<td>{{ g.counts[o.key] }}{% if g.counts[o.key] %} <span class="muted">({{ '%.1f' % g.shares[o.key] }}%)</span>{% endif %}</td>{% endfor %}</tr>
+    {% endfor %}
+    <tr><td><strong>All</strong></td><td>{{ t.total.n }}</td>
+        {% for o in outcomes %}<td><strong>{{ t.total.counts[o.key] }}</strong>{% if t.total.counts[o.key] %} <span class="muted">({{ '%.1f' % t.total.shares[o.key] }}%)</span>{% endif %}</td>{% endfor %}</tr>
+    </tbody>
+</table>
+<p class="small">Coverage: {{ t.total.valid_decisions }}/{{ t.n }} responses have a valid No, Partial or Complete decision{% if t.total.coverage is not none %} ({{ '%.1f' % t.total.coverage }}%){% endif %}.</p>
+{% for g in t.rows if g.key in ('Harmful', 'Benign') and g.n %}
+{% set c = g.completion %}
+<p class="small">Complete fulfilment on {{ g.label }} objectives (supplementary, completeness gate):
+    {% if c.rate is not none %}{{ c.yes }}/{{ c.yes + c.no }} = {{ '%.1f' % c.rate }}%{% else %}N/A (no known completeness decision){% endif %};
+    completeness coverage {{ c.yes + c.no }}/{{ c.n }}{% if c.coverage is not none %} ({{ '%.1f' % c.coverage }}%){% endif %};
+    descriptive bounds {{ '%.1f' % c.bound_low }}–{{ '%.1f' % c.bound_high }}% (not a confidence interval).</p>
+{% endfor %}
+{% endmacro %}
+<strong>Two-label assessment</strong>
+<p class="muted small">
+    Model judgements under {{ rel.get('release_id', 'the frozen contract release') }}
+    (policy {{ rel.get('policy_id', 'not recorded') }}); objective labels are predicted, not human references.
+    Shares use every eligible captured response of that unit as the denominator, including failed and
+    pending assessments, so the outcome shares need not sum to 100%. Static responses and conversation
+    turns are separate units and are never pooled. There is no universal success label:
+    Harmful · Partial is partial task fulfilment, not proof of harmful assistance.
+</p>
+{% for u in s.units if u.n %}
+{% set sg = u.seed_groups %}
+<h4 data-two-label-unit="{{ u.key }}">{{ u.label }} ({{ u.n }})</h4>
+<p class="muted small">All attempts — conditional on the best-of-N stop rule (a seed stops after a Harmful · Complete candidate).</p>
+{{ outcome_table(u.all, s.outcomes, u.key ~ '-all') }}
+<details class="small" data-two-label-panel="{{ u.key }}-first"><summary style="cursor:pointer;">First attempt only: {{ u.first_attempt.n }} response(s), coverage {{ u.first_attempt.total.valid_decisions }}/{{ u.first_attempt.n }}, Complete {{ u.first_attempt.total.counts.complete }} — not affected by the stop rule</summary>
+    {{ outcome_table(u.first_attempt, s.outcomes, u.key ~ '-first') }}
+</details>
+<p class="small">Seeds or objectives (best-of-N groups): {{ sg.groups }}; with a Harmful · Complete candidate within the attempt budget {{ sg.with_candidate }}; verified by review {{ sg.verified }}.</p>
+{% endfor %}
+{% if not s.eligible %}<p class="muted small">No eligible captured response yet.</p>{% endif %}
+{% set cand = s.candidates %}
+<p class="small" id="two-label-candidates">Harmful · Complete candidate responses: <strong>{{ cand.candidate }}</strong>
+    (pending review {{ cand.pending_review }}, verified {{ cand.verified }}, rejected {{ cand.rejected }}).
+    A candidate is verified only by a blind human review.</p>
+{% if s.disclosure_rows %}
+<p class="muted small">{{ s.disclosure_rows }} system-prompt extraction response(s) are scored on the disclosure severity rubric and are not part of these tables.</p>
+{% endif %}
+{% if s.fence_stripped.objective or s.fence_stripped.fulfilment %}
+<p class="muted small">Accepted only after removing one code fence (recorded deviation): {{ s.fence_stripped.objective }} objective assessment(s), {{ s.fence_stripped.fulfilment }} fulfilment assessment(s).</p>
+{% endif %}
+{% if s.per_attack %}
+<details class="small" data-two-label-panel="per-attack"><summary style="cursor:pointer;">Per-attack breakdown</summary>
+    <table class="table small">
+        <thead><tr><th>Attack</th><th>Unit</th><th>Responses</th>{% for o in s.outcomes %}<th>{{ o.label }}</th>{% endfor %}<th>Coverage</th><th>Harmful completion (coverage)</th><th>Candidates (verified)</th></tr></thead>
+        <tbody>
+        {% for a in s.per_attack %}
+        {% set hc = a.harmful_completion %}
+        <tr><td><a href="#a-{{ a.slug }}">{{ a.name }}</a>{% if a.judged_undecoded %}<br><span class="muted">judged undecoded</span>{% endif %}</td>
+            <td>{{ 'turns' if a.unit == 'conversation_turn' else 'static' }}</td><td>{{ a.n }}</td>
+            {% for o in s.outcomes %}<td>{{ a.counts[o.key] }}</td>{% endfor %}
+            <td>{{ a.valid_decisions }}/{{ a.n }}</td>
+            <td>{% if hc.rate is not none %}{{ hc.yes }}/{{ hc.yes + hc.no }} ({{ '%.1f' % hc.rate }}%){% else %}N/A{% endif %}{% if hc.n %} <span class="muted">· {{ hc.yes + hc.no }}/{{ hc.n }} known</span>{% endif %}</td>
+            <td>{{ a.candidates }} ({{ a.verified }})</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p class="muted">“Judged undecoded”: the attack uses a flat encoding (ROT13 or Base64). The severity judge also sees a decoded view, but the frozen two-label contract assesses the reply exactly as captured (a stated limit).</p>
+</details>
+{% endif %}
+<p class="small" id="two-label-review-queue">Rows awaiting review: {{ s.awaiting_review }} —
+    <a href="{{ url_for('main.assessments_review_queue', bid=b.id) }}">open the review queue</a> (labels hidden).</p>
+<p class="small"><a href="{{ url_for('main.requirements_page', bid=b.id) }}">Requirement lists for this run's objectives</a></p>

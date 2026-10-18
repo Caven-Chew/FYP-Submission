@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<section class="card judge-card" aria-labelledby="judge-heading">
+    <h2 id="judge-heading">Judge</h2>
+    <p>Provider <code>{{ judge.provider or 'not set' }}</code> · model <code>{{ judge.model or 'not set' }}</code></p>
+    {% if judge.problem %}
+    <p class="judge-card__problem">Not ready: {{ judge.problem }}</p>
+    {% else %}
+    <p id="judge-status" class="judge-status" role="status" aria-live="polite"
+       data-url="{{ url_for('main.judge_status') }}"><span class="judge-dot judge-dot--wait"></span>Checking that the judge is live…</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('main.judge_test') }}" class="judge-card__form" id="judge-test-form"{% if not judge.problem %} hidden{% endif %}>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn">Test judge</button>
+        <span class="muted small">Sends one short request to the judge and tells you whether the judge answered.</span>
+    </form>
+    <noscript><style>#judge-test-form { display: flex !important; } #judge-status { display: none; }</style></noscript>
+</section>
+<script>
+(function () {
+  const el = document.getElementById('judge-status');
+  if (!el) return;
+  const form = document.getElementById('judge-test-form');
+  const show = (cls, text) => { el.innerHTML = ''; const dot = document.createElement('span');
+    dot.className = 'judge-dot ' + cls; el.append(dot, document.createTextNode(text)); };
+  fetch(el.dataset.url, { headers: { 'Accept': 'application/json' } })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) { show('judge-dot--live', 'Judge is live.'); el.classList.add('judge-status--live'); return; }
+      show('judge-dot--down', 'Judge is not live: ' + (d.message || 'no answer.'));
+      el.classList.add('judge-card__problem'); form.hidden = false;
+    })
+    .catch(() => { show('judge-dot--down', 'Judge is not live: the check could not run.');
+      el.classList.add('judge-card__problem'); form.hidden = false; });
+})();
+</script>
+
+<div class="metrics">
+    <div class="metric"><span>Targets</span><b>{{ targets }}</b></div>
+    <div class="metric"><span>Benchmarks</span><b>{{ benchmarks }}</b></div>
+    <div class="metric"><span>Measured test cases</span><b>{{ total_prompts }}</b></div>
+    <div class="metric"><span>Successful attacks (all runs combined; research metric)</span><b>{% if total_prompts %}{{ total_successes }} ({{ success_rate }}%){% else %}unmeasured{% endif %}</b></div>
+</div>
+
+<h2>Recent benchmarks</h2>
+{% if recent %}
+<table class="table">
+    <thead><tr><th>#</th><th>Name</th><th>Target</th><th>Status</th><th>Risk</th><th>Created</th></tr></thead>
+    <tbody>
+    {% for b in recent %}
+        <tr>
+            <td>#{{ b.id }}</td>
+            <td><a href="{{ url_for('main.benchmarks_detail', bid=b.id) }}">{{ b.name }}</a></td>
+            <td>{{ b.target.name }}</td>
+            <td><span class="pill pill--{{ b.status }}">{{ b.status }}</span></td>
+            <td>{{ 'interactive · teacher review' if 'custom-interactive' in b.attack_slugs else b.risk_score if b.total_prompts else 'unmeasured' }}</td>
+            <td>{{ b.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty">No benchmarks yet. <a href="{{ url_for('main.benchmarks_new') }}">Run one →</a></p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,21 @@
+# Local configuration, credentials and generated state
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+instance/
+artifacts/
+outputs/
+reproduction-output/
+*.db
+*.db-*
+*.sqlite*
+*.har
+*storage_state*.json
+*session*.json
+.DS_Store
+.git/

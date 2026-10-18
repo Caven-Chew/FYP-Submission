@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{# Blind human review (Task 7, plan Task 2.4). In blind mode the view passes only
+   the task, the prompt as sent, the response and the author-supplied list; the
+   judge's labels, reasons and raw output are not in the page at all. #}
+{% block title %}{{ 'Blind review' if blind else 'Review' }} — PyRIT-Bench{% endblock %}
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1>{{ 'Blind review' if blind else 'Your review and the judge’s assessment' }}</h1>
+        <p class="muted">{{ b.name }} · {{ p.attack_slug }} · row {{ p.sequence + 1 }}{% if p.attempt %} · attempt {{ p.attempt + 1 }}{% endif %}</p>
+    </div>
+    <a class="btn" href="{{ url_for('main.assessments_review_queue', bid=b.id) }}">← Back to review queue</a>
+</header>
+
+{% set cited = {} if blind else two_label.citations(attempt) %}
+<div class="card">
+    <strong>Objective</strong>
+    <pre class="cell">{{ objective_text }}</pre>
+    {% if prompt_text != objective_text %}
+    <strong>Prompt as sent to the target</strong>
+    <pre class="cell">{{ prompt_text }}</pre>
+    {% endif %}
+</div>
+<div class="card">
+    <strong>Response</strong>
+    <table class="table small">
+    {% for line in response_lines %}
+        <tr><td><code>{{ line.id }}</code>{% if line.id in cited %} <strong>◀ {{ cited[line.id]|join(', ') }}</strong>{% endif %}</td><td><pre class="cell">{{ line.text }}</pre></td></tr>
+    {% endfor %}
+    </table>
+</div>
+
+{% if blind %}
+{% if requirements %}
+<details class="card"><summary style="cursor:pointer;">Author-supplied requirement list</summary>
+    <ul>{% for r in requirements %}<li><code>{{ r.id }}</code> {{ r.description }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+<form method="post" class="form card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset>
+        <legend>Objective harmfulness</legend>
+        {% for label in labels %}
+        <label class="check"><input type="radio" name="objective_label" value="{{ label }}" required> {{ label }}</label>
+        {% endfor %}
+    </fieldset>
+    <fieldset>
+        <legend>Task fulfilment</legend>
+        {% for key, name in fulfilments.items() %}
+        <label class="check"><input type="radio" name="fulfilment" value="{{ key }}" required> {{ name }}</label>
+        {% endfor %}
+    </fieldset>
+    <label>Short rationale <textarea name="rationale" rows="3" maxlength="2000" required></textarea></label>
+    <button class="btn" type="submit">Submit review, then show the judge’s assessment</button>
+    <p class="muted small">The judge’s assessment is shown only after you submit. A submitted review cannot be changed here.</p>
+</form>
+{% else %}
+{% set obj = attempt.objective_assessment %}
+<table class="table">
+    <thead><tr><th></th><th>Your review ({{ review.created_at }} UTC)</th><th>Judge (model judgement)</th></tr></thead>
+    <tbody>
+    <tr><td>Objective harmfulness</td><td>{{ review.objective_label }}</td>
+        <td>{{ two_label.objective_badge(attempt) }}{% if obj and obj.reason %}<br><span class="small">{{ obj.reason }}</span>{% endif %}{% if obj and obj.review_reason %}<br><span class="small">{{ obj.review_reason }}</span>{% endif %}</td></tr>
+    <tr><td>Task fulfilment</td><td>{{ fulfilments[review.fulfilment] }}</td>
+        <td>{{ two_label.fulfilment_badge(attempt) }}{% if attempt.contribution %}<br><span class="small">contribution {{ attempt.contribution }}, all requirements met {{ attempt.completeness }}</span>{% endif %}</td></tr>
+    <tr><td>Rationale</td><td>{{ review.rationale }}</td>
+        <td class="small">{{ (attempt.record.get('parsed_output') or {}).get('contribution_reason') or '' }}</td></tr>
+    {% if attempt.candidate_success %}
+    <tr><td>Harmful · Complete candidate</td><td colspan="2">{{ {'confirmed': 'Verified: your review agrees it is Harmful and Complete.', 'rejected': 'Rejected: your review does not support Harmful and Complete.', 'pending_review': 'Pending review.'}.get(attempt.review_status, attempt.review_status) }}</td></tr>
+    {% endif %}
+    </tbody>
+</table>
+{% if two_label.requirement_rows(attempt) %}
+<div class="card"><strong>Judge requirement checks</strong>
+    <table class="table small">
+        <thead><tr><th>Requirement</th><th>Verdict</th><th>Reason</th><th>Cited</th></tr></thead>
+        <tbody>{% for r in two_label.requirement_rows(attempt) %}
+        <tr><td><code>{{ r.id }}</code> {{ r.description }}</td><td>{{ r.verdict or '—' }}</td><td>{{ r.reason or '' }}</td><td>{{ (r.evidence_ids or [])|join(', ') }}</td></tr>
+        {% endfor %}</tbody>
+    </table>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

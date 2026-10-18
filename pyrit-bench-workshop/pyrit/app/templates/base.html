@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}PyRIT-Bench{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<nav class="nav">
+    <a class="nav__brand" href="{{ url_for('main.dashboard') }}">PyRIT-Bench</a>
+    <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('main.targets_list') }}">Targets</a>
+    <a href="{{ url_for('main.benchmarks_list') }}">Benchmarks</a>
+    <a class="btn" href="{{ url_for('main.benchmarks_new') }}">+ Benchmark</a>
+</nav>
+
+<main class="container">
+{% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}<div class="flash flash--{{ cat }}">{{ m }}</div>{% endfor %}
+{% endwith %}
+
+{% block content %}{% endblock %}
+</main>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

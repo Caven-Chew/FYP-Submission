@@ -1,0 +1,80 @@
+{# Two-label explanations for one result row (Task 7): separate, collapsed,
+   escaped, with cited line IDs shown next to the numbered source lines. The
+   data-two-label keys let the live update keep opened panels open. #}
+{% if p.counts_toward_stats and two_label.row_method(p) != 'severity' %}
+{% set tl = two_label.current_assessment(p) %}
+{% if tl %}
+{% set obj = tl.objective_assessment %}
+<details class="small" data-two-label="{{ p.id }}-objective"><summary style="cursor:pointer;">Objective harmfulness: {{ two_label.objective_badge(tl) }} — show</summary>
+    {% if obj %}
+    {% set parsed = obj.record.get('parsed_output') or {} %}
+    <p>Status: {{ obj.output_class }} <span class="muted">({{ obj.output_status }}; {{ obj.policy_id }}{% if obj.record.get('fence_stripped') %}; accepted after removing one code fence{% endif %})</span></p>
+    {% if obj.reason %}<p><strong>Reason:</strong> {{ obj.reason }}</p>{% endif %}
+    {% if obj.review_reason %}<p><strong>Needs review:</strong> {{ obj.review_reason }}</p>{% endif %}
+    {% if obj.output_class == 'valid' and parsed.get('ambiguity') %}
+    <p><strong>Missing fact:</strong> {{ parsed.ambiguity.missing_fact }}<br>
+       <strong>Benign reading:</strong> {{ parsed.ambiguity.benign_reading }}<br>
+       <strong>Harmful reading:</strong> {{ parsed.ambiguity.harmful_reading }}</p>
+    {% endif %}
+    <table class="table small">
+    {% for line in two_label.numbered_lines(obj.objective_text, 'O') %}
+        <tr><td><code>{{ line.id }}</code>{% if line.id in obj.evidence_ids %} <strong>◀ cited</strong>{% endif %}</td><td><pre class="cell">{{ line.text }}</pre></td></tr>
+    {% endfor %}
+    </table>
+    {% if obj.output_class not in ('valid', 'needs_review') %}
+    <p class="muted">The judge output was not accepted{% if obj.record.get('event_detail') %} ({{ obj.record.get('event_detail') }}){% endif %}. Raw output, kept verbatim:</p>
+    <pre class="cell">{{ obj.raw_output or '(none)' }}</pre>
+    {% endif %}
+    <p class="muted">Judge: {{ obj.judge.get('provider', 'unknown') }}/{{ obj.judge.get('model', 'unknown') }} · assessed {{ obj.created_at }} UTC · reused for every response to this objective.</p>
+    {% else %}
+    <p class="muted">The objective stage has not finished.</p>
+    {% endif %}
+</details>
+<details class="small" data-two-label="{{ p.id }}-fulfilment"><summary style="cursor:pointer;">Task fulfilment: {{ two_label.fulfilment_badge(tl) }} — show</summary>
+    {% if tl.status == 'not_called' %}
+    <p>No author-supplied requirement list existed for this objective, so the fulfilment judge was not called.
+       Add one on the <a href="{{ url_for('main.requirements_page', bid=b.id) }}">Requirements page</a>, then retry the two-label assessment.</p>
+    {% elif tl.status in ('running', 'interrupted') %}
+    <p class="muted">{{ 'Assessment in progress.' if tl.status == 'running' else (tl.record.get('note') or 'Interrupted; outcome unknown.') }}</p>
+    {% else %}
+    {% set parsed = tl.record.get('parsed_output') or {} %}
+    {% set cited = two_label.citations(tl) %}
+    <p>Status: {{ tl.status }} <span class="muted">({{ tl.output_status }}{% if tl.record.get('fence_stripped') %}; accepted after removing one code fence{% endif %}{% if tl.requirements %}; requirement list v{{ tl.requirements.version }}{% endif %}{% if not tl.capture_complete %}; capture not known to be complete{% endif %})</span></p>
+    {% if tl.status in ('valid', 'abstention') %}
+    <p><strong>Useful contribution:</strong> {{ tl.contribution }} — {{ parsed.get('contribution_reason') }}
+       {% if parsed.get('contribution_evidence_ids') %}<span class="muted">[{{ parsed.contribution_evidence_ids|join(', ') }}]</span>{% endif %}<br>
+       <strong>All essential requirements met:</strong> {{ tl.completeness }}</p>
+    {% if parsed.get('uncertainty_reason') %}<p><strong>Unresolved:</strong> {{ parsed.uncertainty_reason }}</p>{% endif %}
+    {% if (parsed.get('input_review') or {}).get('reason') %}<p><strong>Input needs review:</strong> {{ parsed.input_review.reason }}</p>{% endif %}
+    <table class="table small">
+        <thead><tr><th>Requirement</th><th>Verdict</th><th>Reason</th><th>Cited</th></tr></thead>
+        <tbody>
+        {% for r in two_label.requirement_rows(tl) %}
+        <tr><td><code>{{ r.id }}</code> {{ r.description }}</td><td>{{ r.verdict or '—' }}</td><td>{{ r.reason or '' }}</td><td>{{ (r.evidence_ids or [])|join(', ') }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% if tl.requirements and tl.requirements.created_at > p.created_at %}
+    <p class="muted">This requirement list was saved after the response was captured.</p>
+    {% endif %}
+    {% else %}
+    <p class="muted">The judge output was not accepted{% if tl.record.get('event_detail') %} ({{ tl.record.get('event_detail') }}){% endif %}; this is a technical failure, not a fulfilment outcome. Raw output, kept verbatim:</p>
+    <pre class="cell">{{ tl.raw_output or '(none)' }}</pre>
+    {% endif %}
+    <table class="table small">
+    {% for line in two_label.numbered_lines(p.response, 'L') %}
+        <tr><td><code>{{ line.id }}</code>{% if line.id in cited %} <strong>◀ {{ cited[line.id]|join(', ') }}</strong>{% endif %}</td><td><pre class="cell">{{ line.text }}</pre></td></tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+</details>
+{% set history = two_label.attempts_for(p) %}
+{% if history|length > 1 %}
+<details class="small" data-two-label="{{ p.id }}-history"><summary style="cursor:pointer;">Two-label attempts ({{ history|length }})</summary>
+    {% for a in history %}
+    <p>{{ a.created_at }} UTC — {{ 'interrupted (worker ended; outcome unknown)' if a.status == 'running' and b.status not in ('queued', 'running', 'paused', 'stopping', 'scoring') else a.status }}{% if a.fulfilment %}, {{ a.fulfilment }}{% endif %}{% if a.cannot_assess_reason %} ({{ a.cannot_assess_reason }}){% endif %} · judge {{ a.judge.get('provider', 'unknown') }}/{{ a.judge.get('model', 'unknown') }} · response hash <code>{{ a.response_sha256[:12] }}</code></p>
+    {% endfor %}
+</details>
+{% endif %}
+{% endif %}
+{% endif %}

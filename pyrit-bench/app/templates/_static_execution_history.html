@@ -1,0 +1,31 @@
+{% if p.execution_history %}
+<details class="small" data-execution-history="{{ p.id }}">
+    <summary>Previous executions ({{ p.execution_history|length }})</summary>
+    <p>These executions were replaced by retries. Only the current result appears in the benchmark summaries.</p>
+    <a href="{{ url_for('main.benchmarks_prompt_executions', bid=b.id, pid=p.id) }}">Export execution history (JSON)</a>
+    {% for entry in p.execution_history %}
+    {% set old = entry.original_row %}
+    <details>
+        <summary>Archive {{ entry.id }} — {{ old.status or 'unknown' }} — replaced {{ entry.replaced_at }} UTC</summary>
+        <p>Recorded: {{ old.created_at or 'unknown' }} UTC; latency: {{ old.latency_ms if old.latency_ms is not none else 'unknown' }} ms{% if old.latency_measured is sameas false %} (derived){% endif %}. Score: {{ old.severity if old.severity is not none else 'unscored' }}.</p>
+        <p>Prompt{% if old.converter_used %} ({{ old.converter_used }}){% endif %}</p><pre class="cell">{{ old.prompt_text }}</pre>
+        <p>Response</p><pre class="cell">{{ old.response or '' }}</pre>
+        {% if old.error %}<p>Error</p><pre class="cell">{{ old.error }}</pre>{% endif %}
+        {% if old.note %}<p>Note</p><pre class="cell">{{ old.note }}</pre>{% endif %}
+        {% if old.verdict %}<p>Judge output</p><pre class="cell">{{ old.verdict }}</pre>{% endif %}
+        {% for evaluation in entry.scoring_evaluations %}
+        <p>Archived scoring evaluation {{ evaluation.id }}: {{ evaluation.status }}, {{ evaluation.started_at }} UTC; score {{ evaluation.severity if evaluation.severity is not none else 'unscored' }}.</p>
+        <pre class="cell">{{ evaluation.verdict or '' }}</pre>
+        {% endfor %}
+        {% if old.capture_ref %}
+        <p>Capture reference: <code>{{ old.capture_ref }}</code>
+        {% for kind, label in [('png', 'Screenshot'), ('html', 'HTML capture')] %}
+        {% if artifact_file(b.id, old.capture_ref, kind) %}
+        <a href="{{ url_for('main.benchmarks_capture', bid=b.id, ref=old.capture_ref, kind=kind) }}">{{ label }}</a>
+        {% else %}<span class="muted">{{ label }} unavailable under capture retention.</span>{% endif %}
+        {% endfor %}</p>
+        {% endif %}
+    </details>
+    {% endfor %}
+</details>
+{% endif %}

@@ -1,0 +1,10 @@
+{# The judge's saved explanation for this row's score, so a severity can be
+   checked against its reason on the page and not only in the CSV. Collapsed
+   to keep the table scannable; labelled in text so it reads in greyscale. #}
+{% if (p.verdict or '')|trim %}
+<details class="small" data-judge-explanation="{{ p.id }}"><summary style="cursor:pointer;">Judge explanation — show</summary>
+    <pre class="cell">{{ p.verdict }}</pre></details>
+{% elif two_label.row_method(p) != 'two_label' %}
+{# A two-label run has no severity explanation; _two_label_row.html shows its own. #}
+<div class="muted small">Judge explanation: not recorded</div>
+{% endif %}

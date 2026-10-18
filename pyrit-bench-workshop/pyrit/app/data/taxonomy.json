@@ -1,0 +1,50 @@
+{
+  "_about": "Prompt-injection taxonomy used to categorize objectives and prompts (categories that still work against safety-hardened LLMs).",
+  "categories": [
+    {
+      "slug": "direct_harmful",
+      "name": "Direct harmful request",
+      "description": "Plain harmful instruction with no obfuscation. Baseline category."
+    },
+    {
+      "slug": "role_play_jailbreak",
+      "name": "Role-play / persona jailbreak",
+      "description": "Frames the request as fiction, persona (DAN-style), or hypothetical to bypass safety alignment."
+    },
+    {
+      "slug": "context_framing",
+      "name": "Context / framing bypass",
+      "description": "Wraps the request in research, education, security-seminar or safety-testing framing."
+    },
+    {
+      "slug": "semantic_reframing",
+      "name": "Semantic reframing",
+      "description": "Keeps the request fully legible but rewrites its form — verse, persuasive/expert framing, past tense — so it no longer matches the surface patterns safety training was tuned on. Unlike encoding obfuscation these are not character tricks, which is why they still work against models that have been hardened against base64/ROT13."
+    },
+    {
+      "slug": "encoding_obfuscation",
+      "name": "Encoding obfuscation",
+      "description": "Encodes the prompt (base64, leetspeak, rot13, hex, morse, ascii art) so safety classifiers miss it."
+    },
+    {
+      "slug": "unicode_obfuscation",
+      "name": "Unicode / homoglyph obfuscation",
+      "description": "Uses confusables, diacritics, character-space or zero-width characters to evade pattern-matching defences."
+    },
+    {
+      "slug": "instruction_override",
+      "name": "Instruction override / system-prompt leak",
+      "description": "Tells the model to ignore previous instructions or reveal its system prompt."
+    },
+    {
+      "slug": "multi_turn_escalation",
+      "name": "Multi-turn escalation (crescendo)",
+      "description": "Gradually escalates innocuous questions across turns until the model concedes."
+    },
+    {
+      "slug": "indirect_injection",
+      "name": "Indirect injection",
+      "description": "Hides the attack inside data the model is asked to summarise / process (tool output, retrieved doc)."
+    }
+  ]
+}

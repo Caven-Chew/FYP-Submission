@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{# Review queue (Task 7): the only way into the blind review form. Rows are
+   shuffled per visit and show no judge labels, badges, candidate wording or
+   counts; only the prompt excerpt, attack, row id and whether it is reviewed. #}
+{% block title %}Review queue — PyRIT-Bench{% endblock %}
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1>Review queue</h1>
+        <p class="muted">{{ b.name }}. Open a row to give your own objective label and fulfilment with a short
+            rationale. The judge's assessment is shown only after you submit. The order is random.</p>
+    </div>
+    <a class="btn" href="{{ url_for('main.benchmarks_detail', bid=b.id) }}">← Back to run</a>
+</header>
+{% if rows %}
+<table class="table">
+    <thead><tr><th>Row</th><th>Attack</th><th>Prompt (excerpt)</th><th>Reviewed</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr><td><code>{{ r.prompt_id }}</code></td><td>{{ r.attack }}</td><td>{{ r.excerpt }}</td>
+        <td>{{ 'yes' if r.reviewed else 'no' }}</td>
+        <td><a class="btn-link" href="{{ url_for('main.assessments_review', bid=b.id, pid=r.prompt_id) }}">{{ 'Open' if r.reviewed else 'Review' }}</a></td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">No row has a finished assessment yet.</p>
+{% endif %}
+{% endblock %}

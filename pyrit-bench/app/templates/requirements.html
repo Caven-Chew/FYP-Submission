@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Requirement lists — PyRIT-Bench{% endblock %}
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1>Requirement lists</h1>
+        <p class="muted">
+            Author-supplied essential requirements for the two-label fulfilment stage. Write each list from the
+            objective before viewing responses. Without a list the fulfilment judge is not called and the
+            response is recorded as <em>Cannot assess: no requirements</em>; the harmfulness label is still assessed.
+            Saving an edit creates a new version; earlier versions are kept. The app supplies no separate
+            objective context, so every list uses an empty context, exactly as runs assess it.
+        </p>
+    </div>
+    {% if bench %}<a class="btn" href="{{ url_for('main.benchmarks_detail', bid=bench.id) }}">← Back to {{ bench.name }}</a>{% endif %}
+</header>
+
+{% for title, key in [('Objectives in this run', 'run'), ('Structured objectives (app/data/objectives.json)', 'structured'), ('Other objectives with a requirement list', 'other')] %}
+{% set bucket = entries[key] %}
+{% if bucket %}
+<h2>{{ title }} ({{ bucket|length }})</h2>
+{% for entry in bucket %}
+{% set latest = entry.versions[0] if entry.versions else none %}
+<details class="card" id="{{ entry.anchor }}">
+    <summary style="cursor:pointer;">{{ entry.text|truncate(140) }} —
+        {% if latest %}list v{{ latest.version }} ({{ latest.requirements|length }} requirement{{ '' if latest.requirements|length == 1 else 's' }}){% else %}<strong>no requirement list</strong>{% endif %}
+        <span class="muted small">· {{ entry.source }}{% if entry.objective_id %} {{ entry.objective_id }}{% endif %}</span></summary>
+    <pre class="cell">{{ entry.text }}</pre>
+    <p class="muted small">Objective SHA-256 <code>{{ entry.sha }}</code></p>
+    {% for v in entry.versions %}
+    <p><strong>Version {{ v.version }}</strong> · {{ v.status }} · saved {{ v.created_at }} UTC{% if v.note %} · {{ v.note }}{% endif %}{% if not loop.first %} · superseded{% endif %}</p>
+    <ul>{% for r in v.requirements %}<li><code>{{ r.id }}</code> {{ r.description }}</li>{% endfor %}</ul>
+    {% endfor %}
+    <form method="post" class="form" action="{{ url_for('main.requirements_page', bid=bench.id) if bench else url_for('main.requirements_page') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="objective_sha256" value="{{ entry.sha }}">
+        <label>{{ 'New version' if latest else 'Requirement list' }}
+            <textarea name="requirements" rows="4" placeholder="One essential requirement per line">{{ latest.requirements|tojson if latest else '' }}</textarea></label>
+        <label class="check"><input type="radio" name="format" value="lines" {% if not latest %}checked{% endif %}> One per line (numbered R1, R2, …)</label>
+        <label class="check"><input type="radio" name="format" value="json" {% if latest %}checked{% endif %}> JSON: [{"id": "R1", "description": "…"}]</label>
+        <label>Note <small class="muted">(optional)</small><input type="text" name="note"></label>
+        <button class="btn" type="submit">Save {{ 'new version' if latest else 'requirement list' }}</button>
+    </form>
+</details>
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+<h2>Another objective</h2>
+<form method="post" class="form card" action="{{ url_for('main.requirements_page', bid=bench.id) if bench else url_for('main.requirements_page') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Objective text <small class="muted">(must match the seed or objective exactly)</small>
+        <textarea name="objective_text" rows="3"></textarea></label>
+    <label>Requirements <textarea name="requirements" rows="4" placeholder="One essential requirement per line"></textarea></label>
+    <label class="check"><input type="radio" name="format" value="lines" checked> One per line (numbered R1, R2, …)</label>
+    <label class="check"><input type="radio" name="format" value="json"> JSON: [{"id": "R1", "description": "…"}]</label>
+    <label>Note <small class="muted">(optional)</small><input type="text" name="note"></label>
+    <button class="btn" type="submit">Save requirement list</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    // Open the objective a save redirected to.
+    var target = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+    if (target && target.tagName === 'DETAILS') { target.open = true; }
+})();
+</script>
+{% endblock %}

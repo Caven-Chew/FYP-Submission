@@ -1,0 +1,20 @@
+<details class="small" data-request-history="{{ b.id }}">
+    <summary>Automatic request history ({{ b.request_attempts|length }} observed invocations)</summary>
+    <p>Local static target and saved-judge calls are recorded here, including archived executions and interrupted calls not yet attached to a result. Multi-turn attacks record three stages per invocation, each linked to its saved trajectory: <code>target_send</code> (a send to the target), <code>attacker_call</code> (the attacker model, including Crescendo's refusal check and TAP's on-topic check) and <code>judge_internal</code> (PyRIT's own scorer calls that steer the attack). SDK retries inside one invocation, converter calls and Azure scans are not counted. Missing history means unknown, not zero calls; this is not a billing record.</p>
+    <p>Static send completion time includes retries and backoff, minus recorded throttle rest. Judge evaluation time includes its retries and waits. The invocation durations below exclude this helper's backoff, but may include SDK or browser work.</p>
+    <a href="{{ url_for('main.benchmarks_request_attempts', bid=b.id) }}">Export request history (JSON)</a>
+    {% if b.request_attempts %}
+    {% set links = trajectory_call_links(b.id) %}
+    <table class="table">
+        <thead><tr><th>Call / attempt</th><th>Stage / result</th><th>Outcome</th><th>Invocation ms</th><th>Backoff ms (planned / elapsed)</th><th>Delivery</th></tr></thead>
+        <tbody>{% for a in b.request_attempts %}
+        <tr><td><code>{{ a.call_id }}</code><br>{{ a.attempt_number }}/{{ a.max_attempts }}<br>{{ a.started_at }} UTC</td>
+            <td>{{ a.stage }}; {% if a.call_id in links %}trajectory #{{ links[a.call_id][0] }}{% if links[a.call_id][1] %}, turn {{ links[a.call_id][1] }}{% endif %}{% else %}prompt {{ a.prompt_id if a.prompt_id is not none else 'not yet attached' }}{% endif %}{% if a.evaluation_id %}; evaluation {{ a.evaluation_id }}{% endif %}{% if a.static_execution_archive_id %}; archive {{ a.static_execution_archive_id }}{% endif %}</td>
+            <td>{{ a.status }}{% if a.reason %}: {{ a.reason }}{% endif %}{% if a.http_status %} (HTTP {{ a.http_status }}){% endif %}</td>
+            <td>{{ a.elapsed_ms if a.elapsed_ms is not none else 'unknown' }}</td>
+            <td>{{ a.backoff_planned_ms if a.backoff_planned_ms is not none else '—' }} / {{ a.backoff_elapsed_ms if a.backoff_elapsed_ms is not none else '—' }}</td>
+            <td>{{ a.delivery }}</td></tr>
+        {% endfor %}</tbody>
+    </table>
+    {% endif %}
+</details>

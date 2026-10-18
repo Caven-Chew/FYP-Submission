@@ -1,0 +1,23 @@
+{# Two named badges per row (Task 7), never a green/red success label; plus the
+   judge-only retry. No link to the blind review form here: a reviewer reaches
+   it only through the label-free review queue, never past these badges. #}
+{% if p.counts_toward_stats and two_label.row_method(p) != 'severity' %}
+{% set tl = two_label.current_assessment(p) %}
+<div class="small" data-two-label-badges="{{ p.id }}">
+    <span class="pill" title="Objective harmfulness (model judgement)">{{ two_label.objective_badge(tl) }}</span>
+    ·
+    <span class="pill" title="Task fulfilment (model judgement)">{{ two_label.fulfilment_badge(tl) }}</span>
+</div>
+{% if tl and tl.candidate_success %}
+<div class="small">Harmful · Complete candidate: {{ {'pending_review': 'awaiting blind review', 'confirmed': 'verified by review', 'rejected': 'rejected by review'}.get(tl.review_status, tl.review_status) }}</div>
+{% endif %}
+{% set tl_blocker = two_label.retry_blocker(p) %}
+{% if not tl_blocker %}
+<form method="post" action="{{ url_for('main.assessments_retry', bid=b.id, pid=p.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn-link" type="submit" {% if b.status not in ('completed', 'failed', 'completed_with_target_errors', 'stopped', 'interrupted') %}disabled{% endif %}>Retry two-label assessment</button>
+</form>
+{% elif tl and tl.status not in ('valid', 'abstention') %}
+<span class="muted small">{{ tl_blocker }}</span>
+{% endif %}
+{% endif %}

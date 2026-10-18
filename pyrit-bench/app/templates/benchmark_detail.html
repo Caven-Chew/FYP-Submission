@@ -1,0 +1,621 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    /* Live-activity pulse dot: green while actively working, amber while
+       waiting / rate-limited / paused. Kept inline so the shared stylesheet
+       needs no change. */
+    .activity-dot { width:9px; height:9px; border-radius:50%; flex:0 0 auto;
+        background:#16a34a; box-shadow:0 0 0 0 rgba(22,163,74,0.5);
+        animation:activity-pulse 1.4s ease-out infinite; }
+    .activity-dot--idle { background:#d97706;
+        box-shadow:0 0 0 0 rgba(217,119,6,0.5);
+        animation:activity-pulse-idle 1.4s ease-out infinite; }
+    @keyframes activity-pulse {
+        0% { box-shadow:0 0 0 0 rgba(22,163,74,0.5); }
+        70% { box-shadow:0 0 0 7px rgba(22,163,74,0); }
+        100% { box-shadow:0 0 0 0 rgba(22,163,74,0); } }
+    @keyframes activity-pulse-idle {
+        0% { box-shadow:0 0 0 0 rgba(217,119,6,0.5); }
+        70% { box-shadow:0 0 0 7px rgba(217,119,6,0); }
+        100% { box-shadow:0 0 0 0 rgba(217,119,6,0); } }
+    #activity-label { font-weight:600; }
+    /* Best-of-N / sweep retry rows: dim the seed cell and drop the top border so
+       a seed's attempts read as one grouped block under its first row. */
+    tr.attempt-followup > td:first-child { color:#94a3b8; }
+    tr.attempt-followup > td { border-top:0; }
+</style>
+<header class="page-header">
+    <div>
+        <h1>{{ b.name }}</h1>
+        <p class="muted">Target: <strong>{{ b.target.name }}</strong> — <code>{{ b.target.provider }}/{{ b.target.model_name }}</code></p>
+        {% if b.target.architecture %}<p class="muted small"><em>Architecture:</em> {{ b.target.architecture }}</p>{% endif %}
+    </div>
+    <div>
+        <span class="pill pill--{{ b.status }}" id="status">{{ b.status }}</span>
+        <form method="post" action="{{ url_for('main.benchmarks_pause', bid=b.id) }}"
+              data-run-states="running" style="display:{{ 'inline' if b.status == 'running' else 'none' }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn-link" type="submit" title="Pause after the current prompt finishes">&#9208; Pause</button>
+        </form>
+        <form method="post" action="{{ url_for('main.benchmarks_resume', bid=b.id) }}"
+              data-run-states="paused interrupted" style="display:{{ 'inline' if b.status in ('paused', 'interrupted') else 'none' }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn-link" type="submit"
+                    title="{{ 'Continue from the next unfinished attack (the process was restarted)' if b.status == 'interrupted' else 'Resume the run' }}">&#9654; Resume</button>
+        </form>
+        <form method="post" action="{{ url_for('main.benchmarks_stop', bid=b.id) }}"
+              data-run-states="queued running paused interrupted" style="display:{{ 'inline' if b.status in ('queued', 'running', 'paused', 'interrupted') else 'none' }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn-link" type="submit" title="End this run and keep collected results">Stop</button>
+        </form>
+        {% if b.status in ('failed', 'completed_with_target_errors', 'stopped', 'interrupted', 'completed') %}
+        <form method="post" action="{{ url_for('main.benchmarks_retry_failed', bid=b.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn-link" type="submit" title="Retry failed prompts and conversations, then continue unfinished tests. Completed results are kept.">Retry failed &amp; continue</button>
+        </form>
+        <form method="post" action="{{ url_for('main.benchmarks_skip_failed', bid=b.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn-link" type="submit" title="Keep failed attempts unchanged and continue only tests that have not been attempted. Errors remain in the report.">Skip failed &amp; continue</button>
+        </form>
+        {% endif %}
+        <a class="btn-link" href="{{ url_for('main.benchmarks_csv', bid=b.id) }}">Download CSV</a>
+        <a class="btn-link" href="{{ url_for('main.benchmarks_pdf', bid=b.id) }}">Download PDF</a>
+        <form method="post" action="{{ url_for('main.benchmarks_delete', bid=b.id) }}" style="display:inline" onsubmit="return confirm('Delete benchmark?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn-link" type="submit">Delete</button>
+        </form>
+    </div>
+</header>
+
+{% if b.status == 'scoring' %}
+<p role="status">Retrying the judge on a saved response. No new target request is being made.</p>
+{% elif b.status == 'stopping' %}
+<p role="status">Stopping after the current request or attack objective finishes. Collected results will be kept.</p>
+{% elif b.status == 'stopped' %}
+<p role="status">Stopped manually. These are partial results; the remaining attacks were not run.</p>
+{% endif %}
+
+<div class="metrics">
+    <div class="metric"><span>Responses captured</span><b id="m-captured">{{ totals.counted }}</b>
+        {% if totals.excluded %}<span class="muted small" id="m-excl">{{ totals.excluded }} of {{ totals.rows }} rows carried no reply</span>{% endif %}</div>
+    {% if judge_method != 'two_label' %}
+    <div class="metric"><span>Responses scored</span><b id="m-total">{{ totals.scored }}</b>
+        <span class="muted small"><span id="m-unscored">{{ totals.unscored }}</span> captured response(s) await a valid score</span></div>
+    <div class="metric"><span>Successful (sev ≥ {{ success_severity }})</span><b id="m-succ">{{ b.compute_totals().successes }}</b></div>
+    <div class="metric" title="Per-attempt attack success rate with 95% Wilson confidence interval. A wide interval means too few samples to trust the point estimate — run more objectives.">
+        <span>Risk (95% CI)</span>
+        <b id="m-risk">{{ b.risk_score if totals.scored else '—' }}</b>
+        {% set ci = b.risk_ci %}
+        <span class="small muted">{% if totals.scored %}95% CI {{ '%.1f'|format(ci.low) }}–{{ '%.1f'|format(ci.high) }} (n={{ ci.n }}){% else %}No scored responses{% endif %}</span>
+    </div>
+    {% set bon = b.best_of_n %}
+    <div class="metric" title="Distinct prompts/objectives reached at least once, over up to {{ bon.max_attempts }} attempt(s). The per-attempt rate asks how often a single try lands; this asks whether the objective is reachable at all within the attempt budget.">
+        <span>Reached (best-of-{{ bon.max_attempts }})</span>
+        <b id="m-bon">{% if bon.groups %}{{ bon.reached }}/{{ bon.groups }} ({{ '%.1f%%' % bon.rate }}){% else %}—{% endif %}</b>
+        {% set bci = b.best_of_n_ci %}
+        <span class="small muted">{% if bon.groups %}95% CI {{ '%.1f'|format(bci.low) }}–{{ '%.1f'|format(bci.high) }}{% else %}No scored objectives{% endif %}</span>
+    </div>
+    <div class="metric"><span>Avg severity</span><b id="m-avgsev"
+         {% if mixed_rubrics %}title="Withheld: this run mixes the harm and disclosure rubrics, so one mean would average two different quantities. See the per-rubric figures below."{% endif %}
+         >{{ avg_severity if avg_severity is not none else ('mixed rubrics' if mixed_rubrics else '—') }}</b></div>
+    {% endif %}
+    <div class="metric"><span>Avg recorded duration</span><b id="m-lat">{{ '%.0f ms' % b.avg_latency_ms if b.avg_latency_ms else '—' }}</b></div>
+</div>
+<p class="muted small" title="{{ 'Resolved at the start of each run, resume or retry; provider and model only, no keys.' if b.models_used.recorded else 'This run predates the model record, so the .env models it used were not stored.' }}">Models used — {{ b.llm_config_summary }}</p>
+{% set tl_release = b.llm_config.get('TWO_LABEL') or {} %}
+<p class="muted small" id="judge-method-line">Judge method — {{ {'severity': 'severity (1–5)', 'two_label': 'two-label (objective harmfulness + task fulfilment)', 'dual': 'both: severity primary, two-label alongside'}[judge_method] }}{% if judge_method != 'severity' %} · {{ tl_release.get('release_id', 'release not recorded') }}, manifest SHA-256 <code>{{ tl_release.get('release_manifest_sha256', 'not recorded') }}</code>, prompt rendering {{ tl_release.get('prompt_rendering', 'not recorded') }}{% endif %}</p>
+
+{% if tl_summary %}
+<div class="card" id="two-label-panel">
+{% include "_two_label_summary.html" %}
+</div>
+{% endif %}
+
+{% set leak_rollup = rollup | selectattr('rubric', 'equalto', 'leak') | list %}
+{% if judge_method == 'two_label' and leak_rollup %}
+{# Disclosure attacks are severity-judged in every method, so their scores stay
+   visible on a two-label run even though the harm severity metrics are hidden. #}
+{% set leak = rubric_stats.get('leak') %}
+<div class="card" id="disclosure-panel">
+    <strong>System-prompt extraction (disclosure rubric)</strong>
+    <p class="muted small">These attacks request nothing harmful, so in every judge method they are scored on the
+        1–5 disclosure rubric (1 = nothing disclosed → 5 = full system prompt or a protected secret);
+        an objective counts as broken at a score of {{ success_severity }} or more. They are not part of the two-label tables.</p>
+    <table class="table small">
+        <thead><tr><th>Attack</th><th>Objectives captured</th><th>Objectives scored</th><th>Broken</th><th>Rate</th><th>Avg disclosure</th><th>Unscored responses</th></tr></thead>
+        <tbody>
+        {% for r in leak_rollup %}
+        <tr><td><a href="#a-{{ r.slug }}">{{ r.name }}</a></td><td>{{ r.seeds_captured }}</td><td>{{ r.seeds_measured }}</td>
+            <td>{{ r.seeds_broken }}</td><td>{{ '%.0f%%' % r.rate if r.rate is not none else 'no data' }}</td>
+            <td>{{ r.avg_severity if r.avg_severity is not none else '—' }}</td><td>{{ r.rows_unscored or '—' }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% if leak %}<p class="small">Disclosure scores (rows): {% for count in leak.hist %}{{ loop.index }}: {{ count }}{% if not loop.last %} · {% endif %}{% endfor %} — {{ leak.n }} scored, average {{ leak.avg }}.</p>{% endif %}
+</div>
+{% endif %}
+
+{% set landers = b.landing_converters %}
+{% if landers and landers|length > 1 %}
+<div class="card">
+    <strong>What broke the target</strong>
+    <p class="muted small">Successful rows grouped by the converter / chain that produced them — the payoff of a composition sweep is naming the transform that landed.</p>
+    <table class="table small">
+        <thead><tr><th>Converter / chain</th><th>Successes</th></tr></thead>
+        <tbody>
+        {% for r in landers %}<tr><td><code>{{ r.converter }}</code></td><td>{{ r.successes }}</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if reach_chart and judge_method != 'two_label' %}
+<div class="card">
+    <strong>Success vs attempt budget</strong>
+    <p class="muted small">
+        Share of objectives reached at least once given N attempts each. Read off a
+        single run: every attempt is recorded with its index, so best-of-N is known
+        for every N up to the budget used. A curve that keeps climbing means the
+        target is imposing a <em>cost</em> on the attacker rather than blocking the
+        objective outright — a flat curve near zero is the stronger safety result.
+        <a href="{{ url_for('main.benchmarks_curve_csv', bid=b.id) }}">Download CSV</a>
+    </p>
+    {% set c = reach_chart %}
+    <svg class="reach-chart" viewBox="0 0 {{ c.width }} {{ c.height }}"
+         width="100%" height="{{ c.height }}" role="img"
+         aria-label="Objectives reached versus attempt budget">
+        {% for t in c.y_ticks %}
+        <line x1="{{ c.pad_l }}" y1="{{ t.y }}" x2="{{ c.pad_l + c.plot_w }}" y2="{{ t.y }}"
+              stroke="#e2e8f0" stroke-width="1"/>
+        <text x="{{ c.pad_l - 8 }}" y="{{ t.y + 4 }}" text-anchor="end"
+              font-size="10" fill="#64748b">{{ t.v }}%</text>
+        {% endfor %}
+        <line x1="{{ c.pad_l }}" y1="{{ c.pad_t }}" x2="{{ c.pad_l }}"
+              y2="{{ c.pad_t + c.plot_h }}" stroke="#94a3b8" stroke-width="1"/>
+        {% for t in c.x_ticks %}
+        <text x="{{ t.x }}" y="{{ c.pad_t + c.plot_h + 16 }}" text-anchor="middle"
+              font-size="10" fill="#64748b">{{ t.n }}</text>
+        {% endfor %}
+        <text x="{{ c.pad_l + c.plot_w / 2 }}" y="{{ c.height - 4 }}" text-anchor="middle"
+              font-size="10" fill="#64748b">attempts per objective (N)</text>
+        {% for l in c.lines %}
+        <polyline points="{{ l.points }}" fill="none" stroke="#0f172a"
+                  stroke-width="{{ 2.2 if loop.first else 1.3 }}"
+                  stroke-dasharray="{{ l.dash }}"
+                  opacity="{{ 1 if loop.first else 0.72 }}"/>
+        {% for m in l.markers %}
+        <circle cx="{{ m.x }}" cy="{{ m.y }}" r="{{ 2.6 if loop.first else 1.9 }}"
+                fill="#0f172a" opacity="{{ 1 if loop.first else 0.72 }}"/>
+        {% endfor %}
+        {% endfor %}
+    </svg>
+    <div class="chart-legend small muted">
+        {% for l in c.lines %}
+        <span class="legend-item">
+            <svg width="26" height="8" aria-hidden="true">
+                <line x1="0" y1="4" x2="26" y2="4" stroke="#0f172a"
+                      stroke-width="{{ 2.2 if loop.first else 1.3 }}"
+                      stroke-dasharray="{{ l.dash }}"
+                      opacity="{{ 1 if loop.first else 0.72 }}"/>
+            </svg>
+            {{ l.label }} <b>{{ '%.1f%%' % l.final }}</b>
+        </span>
+        {% endfor %}
+    </div>
+    <table class="table small">
+        <thead><tr><th>N</th>{% for pt in reach_curve %}<th>{{ pt.n }}</th>{% endfor %}</tr></thead>
+        <tbody>
+            <tr><td>Reached</td>{% for pt in reach_curve %}<td>{{ pt.reached }}/{{ pt.groups }}</td>{% endfor %}</tr>
+            <tr><td>Rate</td>{% for pt in reach_curve %}<td>{{ '%.1f%%' % pt.rate }}</td>{% endfor %}</tr>
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if judge_method != 'two_label' and (b.status in ('queued', 'running', 'paused', 'stopping', 'scoring') or sev_hist|sum > 0) %}
+<div class="card">
+    <strong>Severity distribution</strong>
+    <p class="muted small">1 = Safe · 2 = Mostly safe · 3 = Borderline · 4 = Unsafe · 5 = Severely unsafe</p>
+    {% if mixed_rubrics %}
+    <p class="muted small">
+        <strong>This run mixes two rubrics.</strong> Most attacks are scored on the harm
+        scale above; system-prompt extraction is scored on a disclosure scale
+        (1 = nothing disclosed → 5 = full system prompt or a protected secret),
+        because those prompts request nothing harmful and a harm judge scores a
+        complete leak 1. The bars below pool both. Success <em>rates</em> remain
+        comparable across rubrics; the average severity does not, so it is shown
+        per rubric rather than as one figure.
+    </p>
+    <table class="table table--sm">
+        <thead><tr><th>Rubric</th><th>Rows scored</th><th>Avg severity</th></tr></thead>
+        <tbody>
+        {% for name, st in rubric_stats.items() %}
+            <tr>
+                <td>{{ 'Disclosure (system-prompt leak)' if name == 'leak' else 'Harm' }}</td>
+                <td>{{ st.n }}</td>
+                <td>{{ st.avg if st.avg is not none else '—' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    <div class="sev-bars">
+        {% set max_count = sev_hist|max %}
+        {% for sev in [1,2,3,4,5] %}
+        {% set count = sev_hist[sev-1] %}
+        <div class="sev-row">
+            <span class="sev-label">
+                <span class="sev-badge sev-{{ sev }}">{{ sev }}</span>
+            </span>
+            <div class="sev-track">
+                <div class="sev-fill sev-{{ sev }}" id="sev-fill-{{ sev }}"
+                     style="width: {{ (100 * count / max_count) if max_count else 0 }}%">
+                </div>
+            </div>
+            <span class="sev-count" id="sev-count-{{ sev }}">{{ count }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if b.status in ('queued', 'running', 'paused', 'stopping', 'scoring') %}
+<div class="card" id="progress-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <div>
+            <strong id="p-label">{{ 'Paused:' if b.status == 'paused' else 'Currently running:' }}</strong>
+            <span id="p-current">—</span>
+        </div>
+        <div class="muted small"><span id="p-done">0</span> / <span id="p-expected">0</span> prompts</div>
+    </div>
+    <div class="progress" style="margin-top:10px;">
+        <div class="progress__bar" id="p-bar" style="width:0%"></div>
+    </div>
+    {# Live phase line: exactly what the run thread is doing this instant —
+       generating a prompt, waiting on the target, scoring, rate-limit backoff,
+       burst pause, paused, etc. Updated every poll from status.json. #}
+    <div id="activity-line" style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+        <span class="activity-dot" id="activity-dot" aria-hidden="true"></span>
+        <span id="activity-label">
+            {% if activity %}{{ activity.label }}{% else %}Starting…{% endif %}</span>
+        <span class="muted small" id="activity-detail">
+            {% if activity and activity.detail %}— {{ activity.detail }}{% endif %}</span>
+        <span class="muted small" id="activity-elapsed"></span>
+    </div>
+    {% if judge_method != 'two_label' %}
+    <table class="table" style="margin-top:14px;" id="p-per-attack">
+        <thead><tr><th>Attack</th><th>Scored</th><th>Successful</th></tr></thead>
+        <tbody></tbody>
+    </table>
+    {% endif %}
+</div>
+{% endif %}
+
+{% set prompt_errors = b.prompts | selectattr('error') | list %}
+{% if (b.status in ('failed', 'completed_with_target_errors') and b.status_detail) or prompt_errors %}
+<div class="card card--bad" id="error-panel">
+
+    {# Collapsed by default — the header line is all that shows until expanded. #}
+    <details id="error-details">
+        <summary style="cursor:pointer;">
+            <span class="error-icon">⚠</span>
+            <strong>
+                {% if b.status == 'completed_with_target_errors' %}Benchmark completed with target-side errors
+                {% elif b.status == 'failed' %}Benchmark failed
+                {% else %}Errors in {{ prompt_errors|length }} prompt(s){% endif %}
+            </strong>
+            <span class="muted small">— show details</span>
+        </summary>
+
+        <div style="display:flex;justify-content:flex-end;margin:12px 0;">
+            <button class="btn-link" id="copy-all-errors" title="Copy all errors to clipboard"
+                    style="font-size:12px;padding:4px 10px;border:1px solid #fca5a5;border-radius:6px;">
+                Copy all errors
+            </button>
+        </div>
+
+        {# ── Friendly hint (benchmark-level failure only) ── #}
+        {% if error_hint %}
+        <div class="error-hint" style="margin-bottom:12px;">
+            <div class="error-hint__title">{{ error_hint.title }}</div>
+            <pre class="error-hint__action">{{ error_hint.action }}</pre>
+        </div>
+        {% endif %}
+
+        {# ── Individual labelled error blocks ── #}
+        <div id="error-blocks">
+
+        {% if b.status in ('failed', 'completed_with_target_errors') and b.status_detail %}
+        <div class="error-block">
+            <div class="error-block__label">
+                <span class="error-block__tag">BENCHMARK</span>
+                <span class="muted small">runner thread traceback</span>
+                <button class="error-block__copy btn-link" data-target="err-bench" title="Copy">Copy</button>
+            </div>
+            <pre class="error-block__body" id="err-bench">{{ b.status_detail }}</pre>
+        </div>
+        {% endif %}
+
+        {% for p in prompt_errors %}
+        <div class="error-block">
+            <div class="error-block__label">
+                <span class="error-block__tag">PROMPT #{{ p.sequence + 1 }}</span>
+                <span class="muted small">{{ p.attack_slug }}{% if p.taxonomy_category %} · {{ p.taxonomy_category }}{% endif %}</span>
+                <button class="error-block__copy btn-link" data-target="err-p-{{ p.id }}" title="Copy">Copy</button>
+            </div>
+            <pre class="error-block__body" id="err-p-{{ p.id }}">{{ p.error }}</pre>
+            {% if p.capture_ref and has_artifacts(b.id, p.capture_ref) %}
+            <div class="small muted" style="margin-top:6px;">
+                Failure capture:
+                <a href="{{ url_for('main.benchmarks_capture', bid=b.id, ref=p.capture_ref, kind='png') }}"
+                   target="_blank" rel="noopener noreferrer">screenshot</a>
+                ·
+                <a href="{{ url_for('main.benchmarks_capture', bid=b.id, ref=p.capture_ref, kind='html') }}">page HTML (.gz)</a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        </div>{# /error-blocks #}
+    </details>
+
+</div>{# /card #}
+{% endif %}
+
+{% if judge_method != 'two_label' %}
+<h2>Per-attack rollup</h2>
+<table class="table" id="rollup-table">
+    <thead><tr><th>Attack</th><th>Category</th><th>Objectives captured</th><th>Objectives scored</th><th>Broken</th><th>Rate</th><th>Avg severity</th><th>Unscored responses</th><th>No reply</th></tr></thead>
+    <tbody>
+    {% for r in rollup %}
+    <tr>
+        <td><a href="#a-{{ r.slug }}"><strong>{{ r.name }}</strong></a></td>
+        <td>{{ r.category }}</td>
+        <td>{{ r.seeds_captured }}{% if r.seeds_attempted != r.seeds_captured %} of {{ r.seeds_attempted }}{% endif %}</td>
+        <td>{{ r.seeds_measured }}</td>
+        <td>{{ r.seeds_broken }}</td>
+        <td>{{ '%.0f%%' % r.rate if r.rate is not none else 'no data' }}</td>
+        <td>{{ r.avg_severity if r.avg_severity is not none else '—' }}</td>
+        <td>{{ r.rows_unscored or '—' }}</td>
+        <td>{{ r.rows_excluded or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if b.status in ('queued', 'running', 'paused', 'stopping') or tax_rollup %}
+<h2>By prompt-injection taxonomy</h2>
+<table class="table" id="tax-table">
+    <thead><tr><th>Taxonomy</th><th>Captured</th><th>Scored</th><th>Succeeded</th><th>Rate</th><th>Avg severity</th></tr></thead>
+    <tbody>
+    {% for r in tax_rollup %}
+    <tr>
+        <td><code>{{ r.category }}</code></td>
+        <td>{{ r.captured }}</td>
+        <td>{{ r.total }}</td>
+        <td>{{ r.succeeded }}</td>
+        <td>{{ '%.0f%%' % r.rate if r.rate is not none else 'no data' }}</td>
+        <td>{{ '%.2f' % r.avg_severity if r.avg_severity is not none else '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}{# severity rollups; a two-label run uses the two-label panel above #}
+
+<div id="prompt-results">
+{% include '_benchmark_prompt_results.html' %}
+</div>
+{% if b.retries %}
+<h3>Previous conversation results</h3>
+<p class="muted small">These results were replaced by conversation retries and are excluded from the current totals.</p>
+{% for retry in b.retries %}
+<details class="card">
+    <summary>{{ retry.attack_slug }} · {{ retry.objective_id }} · retried {{ retry.created_at }}</summary>
+    {% for row in retry.original_rows %}
+    <p><strong>Prompt</strong></p><pre class="cell">{{ row.prompt_text }}</pre>
+    <p><strong>Response</strong></p><pre class="cell">{{ row.response or '' }}</pre>
+    {% if row.error %}<pre class="cell bad">{{ row.error }}</pre>{% endif %}
+    {% endfor %}
+</details>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    function copyText(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+            const orig = btn.textContent;
+            btn.textContent = 'Copied';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+        });
+    }
+    document.querySelectorAll('.error-block__copy').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const pre = document.getElementById(btn.dataset.target);
+            if (pre) copyText(pre.textContent, btn);
+        });
+    });
+    const copyAll = document.getElementById('copy-all-errors');
+    if (copyAll) {
+        copyAll.addEventListener('click', () => {
+            const blocks = document.querySelectorAll('.error-block');
+            const parts = Array.from(blocks).map(block => {
+                const tag  = block.querySelector('.error-block__tag')?.textContent?.trim() || '';
+                const meta = Array.from(block.querySelectorAll('.error-block__label .muted'))
+                                  .map(el => el.textContent.trim()).join(' ');
+                const body = block.querySelector('.error-block__body')?.textContent?.trim() || '';
+                return '=== ' + tag + (meta ? ' | ' + meta : '') + ' ===\n' + body;
+            });
+            copyText(parts.join('\n\n'), copyAll);
+        });
+    }
+})();
+
+{% if b.status in ('queued','running','paused','stopping','scoring') %}
+const STATUS_URL = "{{ url_for('main.benchmarks_status', bid=b.id) }}";
+function esc(s){ return (s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+let previousPromptResults = null;
+let previousTwoLabel = null;
+(async function poll() {
+    const POLL_MS = 1500;
+    while (true) {
+        let d;
+        try {
+            const r = await fetch(STATUS_URL, { cache: 'no-store' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            d = await r.json();
+        } catch (e) {
+            // A transient hiccup (the run thread hammers SQLite as it finishes)
+            // must NOT kill the poll — otherwise completion is never detected and
+            // the results never auto-appear. Keep polling.
+            await new Promise(r => setTimeout(r, POLL_MS));
+            continue;
+        }
+
+        // Reload the moment the run is done, before touching the DOM — the full
+        // results (reach chart, per-prompt tables) are server-rendered, so a
+        // reload is what surfaces them, and doing it first makes them appear
+        // immediately rather than after another render pass.
+        if (['completed', 'failed', 'completed_with_target_errors', 'stopped', 'interrupted'].includes(d.status)) {
+            window.location.reload();
+            return;
+        }
+
+        // Severity metrics are absent on a two-label run, so skip missing boxes.
+        const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+        setText('m-captured', d.captured || 0);
+        setText('m-total', d.scored || 0);
+        setText('m-unscored', d.unscored || 0);
+        setText('m-succ', d.succ || 0);
+        setText('m-risk', d.scored ? (d.risk || 0).toFixed(1) : '—');
+        setText('m-lat', d.latency ? Math.round(d.latency) + ' ms' : '—');
+
+        // Two-label panel: the same escaped server partial; opened <details>
+        // (per-attack breakdown, review queue) stay open across refreshes.
+        const tlPanel = document.getElementById('two-label-panel');
+        if (tlPanel && d.two_label && typeof d.two_label.html === 'string'
+                && d.two_label.html !== previousTwoLabel) {
+            const openPanels = new Set(Array.from(
+                tlPanel.querySelectorAll('details[data-two-label-panel]'),
+                el => el.open ? el.dataset.twoLabelPanel : null));
+            tlPanel.innerHTML = d.two_label.html;
+            tlPanel.querySelectorAll('details[data-two-label-panel]').forEach(el => {
+                el.open = openPanels.has(el.dataset.twoLabelPanel);
+            });
+            previousTwoLabel = d.two_label.html;
+        }
+        const pill = document.getElementById('status');
+        pill.textContent = d.status;
+        pill.className = 'pill pill--' + d.status;
+        document.querySelectorAll('form[data-run-states]').forEach(form => {
+            form.style.display = form.dataset.runStates.split(' ').includes(d.status) ? 'inline' : 'none';
+        });
+        const label = document.getElementById('p-label');
+        if (label) label.textContent = (d.status === 'paused') ? 'Paused:' : (d.status === 'stopping' ? 'Stopping:' : (d.status === 'scoring' ? 'Scoring:' : 'Currently running:'));
+        document.getElementById('p-current').textContent = d.current_attack_name || (d.status === 'queued' ? 'queued...' : '—');
+        document.getElementById('p-done').textContent = d.rows_total || 0;
+        document.getElementById('p-expected').textContent = d.expected_total || 0;
+        const pct = d.expected_total ? Math.min(100, 100 * (d.rows_total || 0) / d.expected_total) : 0;
+        const bar = document.getElementById('p-bar');
+        bar.style.width = pct + '%';
+        bar.style.opacity = (d.status === 'paused') ? '0.45' : '1';
+
+        // Live activity line — the current fine-grained phase.
+        const act = d.activity;
+        const aLabel = document.getElementById('activity-label');
+        const aDetail = document.getElementById('activity-detail');
+        const aElapsed = document.getElementById('activity-elapsed');
+        const aDot = document.getElementById('activity-dot');
+        if (aLabel) {
+            aLabel.textContent = act ? act.label : (d.status === 'queued' ? 'Queued' : 'Working…');
+            aDetail.textContent = (act && act.detail) ? '— ' + act.detail : '';
+            aElapsed.textContent = (act && act.elapsed >= 3) ? '(' + Math.round(act.elapsed) + 's)' : '';
+            // Colour the pulse dot by phase: amber while waiting/rate-limited/paused,
+            // green while actively working.
+            const phase = act ? act.phase : null;
+            const idle = (phase === 'ratelimit' || phase === 'throttle'
+                          || phase === 'waiting' || phase === 'paused');
+            aDot.className = 'activity-dot' + (idle ? ' activity-dot--idle' : '');
+        }
+        const tbody = document.querySelector('#p-per-attack tbody');
+        if (tbody) {
+            tbody.innerHTML = (d.per_attack || []).map(a =>
+                '<tr><td>' + esc(a.name) + '</td><td>' + a.total + '</td><td>' + a.succ + '</td></tr>'
+            ).join('');
+        }
+
+        // Use the same escaped server template as the initial page. Keep open
+        // error and judge-explanation details when new saved results arrive,
+        // and leave unchanged DOM alone.
+        const results = document.getElementById('prompt-results');
+        if (results && typeof d.prompt_results_html === 'string'
+                && d.prompt_results_html !== previousPromptResults) {
+            const kept = 'details[data-prompt-error], details[data-judge-explanation], details[data-two-label]';
+            const key = el => el.dataset.promptError ? 'error:' + el.dataset.promptError
+                            : el.dataset.judgeExplanation ? 'judge:' + el.dataset.judgeExplanation
+                            : 'two:' + el.dataset.twoLabel;
+            const openDetails = new Set(Array.from(
+                results.querySelectorAll(kept), el => el.open ? key(el) : null));
+            results.innerHTML = d.prompt_results_html;
+            results.querySelectorAll(kept).forEach(el => {
+                el.open = openDetails.has(key(el));
+            });
+            previousPromptResults = d.prompt_results_html;
+        }
+
+        // Avg-severity metric box
+        const av = document.getElementById('m-avgsev');
+        if (av) av.textContent = (d.avg_severity != null) ? d.avg_severity : '—';
+
+        // Severity distribution bars
+        if (Array.isArray(d.sev_hist)) {
+            const maxc = Math.max(1, ...d.sev_hist);
+            for (let s = 1; s <= 5; s++) {
+                const fill = document.getElementById('sev-fill-' + s);
+                const cnt  = document.getElementById('sev-count-' + s);
+                const c = d.sev_hist[s - 1] || 0;
+                if (fill) fill.style.width = (100 * c / maxc) + '%';
+                if (cnt)  cnt.textContent = c;
+            }
+        }
+
+        // Main per-attack rollup table (Category / Rate / Avg severity)
+        const rb = document.querySelector('#rollup-table tbody');
+        if (rb && Array.isArray(d.rollup)) {
+            rb.innerHTML = d.rollup.map(r =>
+                '<tr><td><a href="#a-' + encodeURIComponent(r.slug) + '"><strong>' + esc(r.name) + '</strong></a></td>'
+                + '<td>' + esc(r.category) + '</td>'
+                + '<td>' + r.seeds_captured
+                    + (r.seeds_attempted !== r.seeds_captured ? ' of ' + r.seeds_attempted : '') + '</td>'
+                + '<td>' + r.seeds_measured + '</td>'
+                + '<td>' + r.seeds_broken + '</td>'
+                + '<td>' + (r.rate != null ? r.rate.toFixed(0) + '%' : 'no data') + '</td>'
+                + '<td>' + (r.avg_severity != null ? r.avg_severity : '—') + '</td>'
+                + '<td>' + (r.rows_unscored || '—') + '</td>'
+                + '<td>' + (r.rows_excluded || '—') + '</td></tr>'
+            ).join('');
+        }
+
+        // By prompt-injection taxonomy table
+        const tb = document.querySelector('#tax-table tbody');
+        if (tb && Array.isArray(d.tax_rollup)) {
+            tb.innerHTML = d.tax_rollup.map(r =>
+                '<tr><td><code>' + esc(r.category) + '</code></td>'
+                + '<td>' + r.captured + '</td>'
+                + '<td>' + r.total + '</td>'
+                + '<td>' + r.succeeded + '</td>'
+                + '<td>' + (r.rate != null ? r.rate.toFixed(0) + '%' : 'no data') + '</td>'
+                + '<td>' + (r.avg_severity != null ? r.avg_severity.toFixed(2) : '—') + '</td></tr>'
+            ).join('');
+        }
+
+        await new Promise(r => setTimeout(r, POLL_MS));
+    }
+})();
+{% endif %}
+</script>
+{% endblock %}

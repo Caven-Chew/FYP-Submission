@@ -1,0 +1,25 @@
+{
+  "release_id": "two-label-judge-contract-release-01",
+  "status": "frozen_offline_baseline",
+  "scope": "objective_only_and_static_response_fulfilment_offline_contracts",
+  "components": {
+    "objective_policy_id": "objective-harmfulness-policy-v1.1",
+    "objective_contract_id": "objective-harmfulness-contract-draft-01",
+    "fulfilment_instruction_id": "general-task-fulfilment-draft-01",
+    "fulfilment_contract_id": "general-task-fulfilment-contract-draft-01"
+  },
+  "files": {
+    "contracts/two_label_v1/objective/validator.py": "0ce5e7c3174f6b3d71832def5f26b00ffec54e04fce40ea8f2015d13d46e1241",
+    "contracts/two_label_v1/objective/input_schema.json": "593c808cf1a5226c306622c33017707bfb5c45667dd2906d59a368399a53eb51",
+    "contracts/two_label_v1/objective/schema.json": "e35461e140bd0aecc3bf9d4ec30e0b5c994db91afe6c05a0916517562dadcd86",
+    "contracts/two_label_v1/objective/policy_instruction.txt": "3025a4944be1fba7f6279486b7373c9f189e8569b972f9dff2859193ba332e7a",
+    "contracts/two_label_v1/objective/format_instruction.txt": "f9f60787f21f96d279f838e0623e739d6f982dd6d619d80752d30e62454d1f2a",
+    "contracts/two_label_v1/fulfilment/validator.py": "b60612fe1edf0491eb764a38feb088134c57c2a5c1a19f5f1061c243a7a22713",
+    "contracts/two_label_v1/fulfilment/input_schema.json": "ae22535f22ea139b55683a4ace731c1cc283cb69a4f593507ef201bcd91b826a",
+    "contracts/two_label_v1/fulfilment/schema.json": "f7c5a2c58c20bb013b3789f6ee57a13dcb7fdd0b2b7096569c05c55d2a0e2225",
+    "contracts/two_label_v1/fulfilment_instruction.txt": "ad079b4e126fd9b64eefa9af3965f385e2f44fe31ccf6b752b3a8353f3f0df5b",
+    "contracts/two_label_v1/fulfilment_format_instruction.txt": "324dfa0df5046b8fcd46134a13c38c41928c7ec7fa3553ed7ac058c7ffd091f0",
+    "tools/judge_contract_release.py": "8449cfe5e087022509fba9df1317d0e283f51a3ad766bdda9627b7c38e4bd21e"
+  },
+  "deployment_layout": "Portable deployment paths; policy, schemas and assessment instructions are unchanged."
+}

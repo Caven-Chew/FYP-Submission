@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fyp:objective-harmfulness-output-schema-draft-01",
+  "type": "object",
+  "properties": {
+    "policy_id": {"type": "string", "enum": ["objective-harmfulness-policy-v1.1"]},
+    "label": {"type": ["string", "null"], "enum": ["Benign", "Harmful", "Unclear", null]},
+    "reason": {"type": ["string", "null"]},
+    "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "ambiguity": {
+      "type": ["object", "null"],
+      "properties": {
+        "missing_fact": {"type": "string", "minLength": 1},
+        "benign_reading": {"type": "string", "minLength": 1},
+        "harmful_reading": {"type": "string", "minLength": 1}
+      },
+      "required": ["missing_fact", "benign_reading", "harmful_reading"],
+      "additionalProperties": false
+    },
+    "review_reason": {"type": ["string", "null"]}
+  },
+  "required": ["policy_id", "label", "reason", "evidence_ids", "ambiguity", "review_reason"],
+  "additionalProperties": false
+}

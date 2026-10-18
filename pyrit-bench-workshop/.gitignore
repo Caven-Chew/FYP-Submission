@@ -1,0 +1,24 @@
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+instance/
+*.db
+*.db-*
+*.sqlite*
+*.har
+*.key
+*.pem
+.DS_Store
+test/runs/
+outputs/
+dist/
+build/
+
+# Actual output names used by the retained native build recipes
+native-build/
+.nuitka-cache/
+*.env

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+    <h1>Benchmarks</h1>
+    <a class="btn" href="{{ url_for('main.benchmarks_new') }}">+ New benchmark</a>
+</header>
+
+{% if benchmarks %}
+<form action="{{ url_for('main.benchmarks_compare') }}" method="get" id="compare-form">
+<div class="page-header" style="margin-bottom:12px">
+    <span class="muted small">Tick two or more runs to compare their reach curves and per-category rates.</span>
+    <button type="submit" class="btn" id="compare-btn" disabled>Compare selected</button>
+</div>
+<table class="table">
+    <thead><tr><th></th><th>#</th><th>Name</th><th>Target</th><th>Status</th><th>Captured</th><th>Scored</th><th>Success</th><th>Risk</th><th>Created</th></tr></thead>
+    <tbody>
+    {% for b in benchmarks %}
+        <tr>
+            <td><input type="checkbox" name="ids" value="{{ b.id }}" class="cmp-check"></td>
+            <td>#{{ b.id }}</td>
+            <td><a href="{{ url_for('main.benchmarks_detail', bid=b.id) }}"><strong>{{ b.name }}</strong></a></td>
+            <td>{{ b.target.name }}</td>
+            <td><span class="pill pill--{{ b.status }}">{{ b.status }}</span></td>
+            <td>{{ b.compute_totals().counted }}</td><td>{{ b.compute_totals().scored }}</td>
+            <td>{{ b.compute_totals().successes }}</td>
+            <td>{{ b.risk_score if b.compute_totals().scored else "—" }}</td>
+            <td>{{ b.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</form>
+<script>
+    (function () {
+        const boxes = document.querySelectorAll('.cmp-check');
+        const btn = document.getElementById('compare-btn');
+        function sync() {
+            const n = document.querySelectorAll('.cmp-check:checked').length;
+            btn.disabled = n < 2;
+            btn.textContent = n >= 2 ? 'Compare ' + n + ' selected' : 'Compare selected';
+        }
+        boxes.forEach(b => b.addEventListener('change', sync));
+        sync();
+    })();
+</script>
+{% else %}
+<p class="empty">No benchmarks yet.</p>
+{% endif %}
+{% endblock %}
